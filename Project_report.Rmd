@@ -1,0 +1,104 @@
+---
+title: "Project MEDM"
+output: html_document
+        #pdf_document
+---
+
+<!-- Press Knit, to make a html-file of the code below-->
+
+```{r setup, include=FALSE}
+airlines = read.csv("http://folk.ntnu.no/catharil/airlines.csv")
+airports = read.csv("http://folk.ntnu.no/catharil/airports.csv")
+flights = read.csv("http://folk.ntnu.no/catharil/flights.csv")
+
+```
+
+
+```{r echo = FALSE}  
+ #to prevent the code chunk from printing of the R code
+
+```
+
+<!-- This is a comment. -->
+
+
+Here we can write Latex code, with formulas inline $E=mc^2$, or in a new line,
+$$
+    A = \pi \cdot r^2.
+$$
+   
+
+# PART 1: EXPLORATORTY DATA ANALYSIS
+```{r , echo=TRUE}
+library(ggplot2)  #for ggplot
+library(class)    #for confusion matrices
+library(caret)    #for knn function
+
+```
+
+
+
+# PART 2: SOLVE CLASSIFICATION PROBLEM
+```{r , echo=TRUE}
+
+
+```
+
+## Resubstitution
+
+```{r , echo=TRUE}
+
+
+```
+
+
+## Hold Out method
+
+```{r , echo=TRUE}
+
+
+```
+
+
+## LOOCV
+
+```{r , echo=TRUE}
+
+
+```
+
+
+## K-fold CV
+
+```{r , echo=TRUE}
+
+
+```
+
+
+## Repeated K-fold CV
+
+```{r , echo=TRUE}
+
+
+```
+
+
+
+## Bootstrap
+
+```{r , echo=TRUE}
+
+
+```
+
+
+
+# PART 3: LEARNING/LIMITATIONS/FUTURE WORK
+
+
+```{r , echo=TRUE}
+
+
+```
+
