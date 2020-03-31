@@ -22,9 +22,9 @@ If you have edited the file, but don´t want to save it, only download what the 
 -->
 
 ```{r setup, include=FALSE}
-airlines = read.csv("http://folk.ntnu.no/catharil/airlines.csv")
-airports = read.csv("http://folk.ntnu.no/catharil/airports.csv")
-flights = read.csv("http://folk.ntnu.no/catharil/flights.csv")
+airlines = read.csv("airlines.csv")
+airports = read.csv("airports.csv")
+flights = read.csv("flights.csv")
 
 ```
 
