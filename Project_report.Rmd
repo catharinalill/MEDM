@@ -4,7 +4,22 @@ output: html_document
         #pdf_document
 ---
 
-<!-- Press Knit, to make a html-file of the code below-->
+<!-- Press Knit, to make a html-file of the code below. This we can use while working with the report to see how it is. Because the dataset flights in pretty large it takes some time to knit the file.. 
+We don´t have to compilate the code to a pdf before we are delivering it, but if you want to you might have to download a program, maybe Latex or something, I am not quite sure. I already have it so I can compilate it to a pdf when we are done with it. 
+But remember if you compilate it to a pdf-file some lines can be too long and get cutted. Then you have to go in the code and adjust it. If you need a linespace you need to have 3 space in the line above. -->
+
+<!-- In gitkranken: 
+When you have edited the code, save it usual. Then open gitkranken, and you will see a blue line with 
+" x file changes in working directory" and a small box "View changes" in the above right corner. Click this one. First you have to commit what you have done, i.e. click on the Project_report.html-file on the right side and press Stage File. (And don´t stage all the other files) Then make a comment on what you have changed in the file, in the bottom right corner, and press the green box "Stage files/changes to commit". 
+After commiting you first have to pull what the other have done, i.e. press "Pull". If you get "pulled successfully" down in the left corner everything is okay and you can press "Push". 
+If not, then we might have some merge conflict we need to fix. 
+Always remember to do all these steps
+1. Commit
+2. Pull
+3. Push
+
+If you have edited the file, but don´t want to save it, only download what the others have done, you can press the "Stash" instead of pull and push. 
+-->
 
 ```{r setup, include=FALSE}
 airlines = read.csv("http://folk.ntnu.no/catharil/airlines.csv")
@@ -13,7 +28,7 @@ flights = read.csv("http://folk.ntnu.no/catharil/flights.csv")
 
 ```
 
-
+   
 ```{r echo = FALSE}  
  #to prevent the code chunk from printing of the R code
 
@@ -26,9 +41,14 @@ Here we can write Latex code, with formulas inline $E=mc^2$, or in a new line,
 $$
     A = \pi \cdot r^2.
 $$
-   
+This is standard Latex-code, so we can write all mathematical signs by using $\mathbf{A}x = b$. 
+$\hat{Y}$, $Y_i$, $\theta$, $\rho(X,C)$, $x_1^{(1)}$. 
+\textbf{bold text}, \textit{italicized}
+This link includes a list of mathematical symbols written in latex. https://oeis.org/wiki/List_of_LaTeX_mathematical_symbols
 
-# PART 1: EXPLORATORTY DATA ANALYSIS
+
+   <!-- 1 # means Section  -->
+# PART 1: EXPLORATORTY DATA ANALYSIS     
 ```{r , echo=TRUE}
 library(ggplot2)  #for ggplot
 library(class)    #for confusion matrices
@@ -43,7 +63,8 @@ library(caret)    #for knn function
 
 
 ```
-
+ <!-- 2 ## means subsection, 3 means subsubsection etc.-->   
+   
 ## Resubstitution
 
 ```{r , echo=TRUE}
