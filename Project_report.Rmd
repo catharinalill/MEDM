@@ -51,7 +51,18 @@ This link includes a list of mathematical symbols written in latex. https://oeis
    <!-- 1 # means Section  -->
 # PART 1: EXPLORATORTY DATA ANALYSIS 
 
- <!-- Perform a exploratory data analysis and discuss what you have learned from this analysis.-->
+ <!-- Perform a exploratory data analysis and discuss what you have learned from this analysis.
+ 
+ 
+ Aim: Which airline should we fly on? 
+ 
+The U.S. Department of Transportation's (DOT) Bureau of Transportation Statistics tracks the on-time performance of domestic flights operated by large air carriers. 
+Summary information on the number of on-time, delayed, canceled, and diverted flights is published in DOT's monthly Air Travel Consumer Report and in this dataset of 2015 flight delays and cancellations.
+
+Initial steps: 
+1-	To solve the classification problem the group must create a new variable through the analysis of the variables associated to the delay that can be used as response variable for the problem aim. 
+ 
+ -->
 
 
 ```{r , echo=TRUE}
