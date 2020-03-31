@@ -22,6 +22,7 @@ If you have edited the file, but don´t want to save it, only download what the 
 -->
 
 ```{r setup, include=FALSE}
+#Have to include the files in the same folder the Rmarkdown is in.
 airlines = read.csv("airlines.csv")
 airports = read.csv("airports.csv")
 flights = read.csv("flights.csv")
