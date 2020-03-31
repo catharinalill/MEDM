@@ -50,7 +50,7 @@ This link includes a list of mathematical symbols written in latex. https://oeis
    <!-- 1 # means Section  -->
 # PART 1: EXPLORATORTY DATA ANALYSIS 
 
-Perform a exploratory data analysis and discuss what you have learned from this analysis.
+ <!-- Perform a exploratory data analysis and discuss what you have learned from this analysis.-->
 
 
 ```{r , echo=TRUE}
@@ -64,7 +64,7 @@ library(caret)    #for knn function
 
 # PART 2: SOLVE CLASSIFICATION PROBLEM
 
-Solve your classification problem.  Consider several classification methods and discuss  how  can  they  contribute  for  the  solution  of  your  problem.   Include in your discussion topics such as the options that you have made in building each  classifier;  interpretation  of  results;  validation  of  the  methods  used  and possible assumptions;  advantages and disadvantages of each alternative;  etc. Have  in  mind  that  some  of  the  explanatory  variables  may  be  irrelevant  to the  classification problem and that  you may need to  do  some  preprocessing methodologies of your data set e.g.  dimensionality reduction techniques.
+ <!-- Solve your classification problem.  Consider several classification methods and discuss  how  can  they  contribute  for  the  solution  of  your  problem.   Include in your discussion topics such as the options that you have made in building each  classifier;  interpretation  of  results;  validation  of  the  methods  used  and possible assumptions;  advantages and disadvantages of each alternative;  etc. Have  in  mind  that  some  of  the  explanatory  variables  may  be  irrelevant  to the  classification problem and that  you may need to  do  some  preprocessing methodologies of your data set e.g.  dimensionality reduction techniques.-->
 
 ```{r , echo=TRUE}
 
@@ -124,7 +124,7 @@ Solve your classification problem.  Consider several classification methods and 
 
 # PART 3: LEARNING/LIMITATIONS/FUTURE WORK
 
-Imagine you are going to meet the researcher who contacted you.  Report to him/her what you have learned about the problem.  Discuss limitations of the analysis you have done and provide suggestions for future work.
+ <!-- Imagine you are going to meet the researcher who contacted you.  Report to him/her what you have learned about the problem.  Discuss limitations of the analysis you have done and provide suggestions for future work.-->
 
 
 ```{r , echo=TRUE}
