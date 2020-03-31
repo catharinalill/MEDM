@@ -53,6 +53,7 @@ This link includes a list of mathematical symbols written in latex. https://oeis
 
  <!-- Perform a exploratory data analysis and discuss what you have learned from this analysis.
  
+ (Just testing the app)
  
  Aim: Which airline should we fly on? 
  
