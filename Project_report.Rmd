@@ -36,7 +36,7 @@ flights = read.csv("flights.csv")
 
 <!-- This is a comment. -->
 
-
+<!--
 Here we can write Latex code, with formulas inline $E=mc^2$, or in a new line,
 $$
     A = \pi \cdot r^2.
@@ -45,7 +45,7 @@ This is standard Latex-code, so we can write all mathematical signs by using $\m
 $\hat{Y}$, $Y_i$, $\theta$, $\rho(X,C)$, $x_1^{(1)}$. 
 \textbf{bold text}, \textit{italicized}
 This link includes a list of mathematical symbols written in latex. https://oeis.org/wiki/List_of_LaTeX_mathematical_symbols
-
+-->
 
    <!-- 1 # means Section  -->
 # PART 1: EXPLORATORTY DATA ANALYSIS 
@@ -57,6 +57,49 @@ This link includes a list of mathematical symbols written in latex. https://oeis
 library(ggplot2)  #for ggplot
 library(class)    #for confusion matrices
 library(caret)    #for knn function
+library(GGally)
+library(corrplot)
+#NEED TO CREATE RESPONSE VARIABLE HERE
+
+
+#The first variable in our flights dataset is YEAR = 2015, which is equal for all so we should not include
+# this in the data analysis/classification.
+
+#DATA ANALYSIS
+
+plot_str(flights[,c(2:10)]) #When we have found the response variable add this: c(2:10,response variable)
+
+#Search for missing values
+plot_missing(flights)
+
+#Continuous variables
+#plot_histogram(flights[,2:10])
+#plot_density(flights[,2:10])
+
+#Correlation
+plot_correlation((flights[, 2:31]), type = "continuous")
+#or
+#corrplot(cor(flights),method = "circle")
+
+#plot_bar(flights)
+
+#Check the response variable, plot a histogram and see the distribution, could us qqplot
+#ggplot(data = flights)
+
+#library(DataExplorer)
+#create_report(flights)
+#Check for outliers
+#boxplot(flights[,1]~flights[,101], col=c(1:2))
+```
+
+
+```{r , echo=TRUE}
+#Add all delay variables to see if the trip in total are delayed or not
+flights$TOTAL_DELAY <- flights$DEPARTURE_DELAY + flights$ARRIVAL_DELAY
+
+#Make new variable delayed (yes/no)
+ifelse(flights$TOTAL_DELAY > 0,flights$DELAYED <- 1,flights$DELAYED <- 0)
+
 
 ```
 
