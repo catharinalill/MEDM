@@ -106,6 +106,36 @@ plot_correlation((flights[, 2:31]), type = "continuous")
 
 
 ```{r , echo=TRUE}
+#Create another data variable
+
+##Remove the observations for which the flight was cancelled
+handled_flights <- flights[flights$CANCELLED<1,]
+#Remove columns YEAR (2015 for all observations), CANCELLATION_REASON (since we are now dealing with flights that 
+#were not cancelled), CANCELLED (will have 0's since these are the flights that were not cancelled)
+#and DIVERTED (will have 0's, non of the non cancelled flights was diverted)
+handled_flights$YEAR <- NULL
+handled_flights$CANCELLATION_REASON <- NULL
+handled_flights$CANCELLED <- NULL
+handled_flights$DIVERTED <- NULL
+
+handled_flights$AIR_SYSTEM_DELAY <- NULL
+handled_flights$SECURITY_DELAY <- NULL
+handled_flights$AIRLINE_DELAY <- NULL
+handled_flights$LATE_AIRCRAFT_DELAY <- NULL
+handled_flights$WEATHER_DELAY <- NULL
+
+#Erase the observations for which there was no information concerning the arrival delay
+handled_flights<- handled_flights[is.na(handled_flights$ARRIVAL_DELAY)==FALSE,]
+
+#Create nem column (DELAY: 0 if the flight is not delayed, 1 if the flight is delayed) 
+##Here we consider only the arrival delay
+handled_flights$DELAY <- handled_flights$ARRIVAL_DELAY
+
+handled_flights$DELAY <- ifelse(handled_flights$DELAY > 0,handled_flights$DELAY <- 1,handled_flights$DELAY <- 0)
+
+
+
+
 #Add all delay variables to see if the trip in total are delayed or not
 flights$TOTAL_DELAY <- flights$DEPARTURE_DELAY + flights$ARRIVAL_DELAY
 
@@ -181,7 +211,44 @@ pred.knn.cv <- train(CL~.,
                      tuneGrid   = expand.grid(k = 1:20),
                      trControl  = train.control,
                      metric     = "Accuracy",
-                     data       =cbind(CL = as.factor(train.data[,33]), train.data[,-33]))
+                     data       = cbind(CL = as.factor(train.data[,33]), train.data[,-33]))
+
+# Summarize the results
+print(pred.knn.cv)
+plot(pred.knn.cv)
+
+# Prediction of fitted model
+fit_cv <- predict(pred.knn.cv,newdata = test.data)
+
+# Make confusion matrix 
+confusionMatrix(test.data$y, fit_cv)
+
+# Calculate accuracy
+mean(test.data$y == fit_cv)
+
+# Calculate misclassification error 
+mean(test.data$y != fit_cv)
+
+
+```
+
+
+```{r , echo=TRUE}
+#Using handled_flights
+# Spliting data as training and test set using createDataPartition() function from caret
+indxTrain <- createDataPartition(y = handled_flights[,23], p = 0.8,list = FALSE)
+train.data <- handled_flights[indxTrain,]
+test.data <- handled_flights[-indxTrain,]
+
+train.control <- trainControl(method = "cv",number = 10) 
+# Train the model
+set.seed(0) # To fix the random process at splitting data
+pred.knn.cv <- train(CL~.,
+                     method     = "knn",
+                     tuneGrid   = expand.grid(k = 1:20),
+                     trControl  = train.control,
+                     metric     = "Accuracy",
+                     data       = cbind(CL = as.factor(train.data[,23]), train.data[,-23]))
 
 # Summarize the results
 print(pred.knn.cv)
