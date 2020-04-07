@@ -79,7 +79,7 @@ library(corrplot)
 
 #DATA ANALYSIS
 
-plot_str(flights[,c(2:10)]) #When we have found the response variable add this: c(2:10,response variable)
+#plot_str(flights[,c(2:10)]) #When we have found the response variable add this: c(2:10,response variable)
 
 #Search for missing values
 plot_missing(flights)
@@ -126,6 +126,20 @@ ifelse(flights$TOTAL_DELAY > 0,flights$DELAYED <- 1,flights$DELAYED <- 0)
 
 ```
  <!-- 2 ## means subsection, 3 means subsubsection etc.-->   
+
+## Naive Bayes method
+
+```{r , echo=TRUE}
+
+
+```
+
+## KNN
+
+```{r , echo=TRUE}
+
+
+``` 
    
 ## Resubstitution
 
@@ -141,7 +155,7 @@ ifelse(flights$TOTAL_DELAY > 0,flights$DELAYED <- 1,flights$DELAYED <- 0)
 
 
 ```
-
+The training and test set will be dependent on which observations are included in each of them and this could lead to high variability of validation set error. Another disadvantage with hold out method is that due to dividing the training set in two, the sample size for model fitting will be smaller. 
 
 ## LOOCV
 
@@ -149,20 +163,78 @@ ifelse(flights$TOTAL_DELAY > 0,flights$DELAYED <- 1,flights$DELAYED <- 0)
 
 
 ```
-
-
+The advantages with LOOCV is that there is no randomsness in splitting the data into training and test set. There is also little bias since nearly the whole data set is used for training, compared to only half the data set for Hold Out method Further, one disadvantage with LOOCV is the expensive implementation because we need to fit $n$ different models. Due to quite similar training sets, since they only differ by one observation, each fold will be highly correlated and this could give high variance for the LOOCV approach as well. 
+   
 ## K-fold CV
 
 ```{r , echo=TRUE}
+# Spliting data as training and test set using createDataPartition() function from caret
+indxTrain <- createDataPartition(y = flights[,33],p = 0.8,list = FALSE)
+train.data <- genes[indxTrain,]
+valid.data <- genes[-indxTrain,]
+
+train.control <- trainControl(method = "cv",number = 10) 
+# Train the model
+set.seed(0) # To fix the random process at splitting data
+pred.knn.cv <- train(CL~.,
+                     method     = "knn",
+                     tuneGrid   = expand.grid(k = 1:20),
+                     trControl  = train.control,
+                     metric     = "Accuracy",
+                     data       =cbind(CL = as.factor(train.data[,33]), train.data[,-33]))
+
+# Summarize the results
+print(pred.knn.cv)
+plot(pred.knn.cv)
+
+# Prediction of fitted model
+fit_cv <- predict(pred.knn.cv,newdata = test.data)
+
+# Make confusion matrix 
+confusionMatrix(test.data$y, fit_cv)
+
+# Calculate accuracy
+mean(test.data$y == fit_cv)
+
+# Calculate misclassification error 
+mean(test.data$y != fit_cv)
 
 
 ```
+
+One disadvantage with using K-fold cross validation is that the result may vary according to how the folds are made. Since the training set is $(k-1)/k$ of the original data set, this will give an estimate of the prediction error that is biased upwards. 
+
+One advantage with cross validation over the LOOCV approach is that there is less computational work when we have $k=10$, instead of $K=N$. 
+By considering the Bias-Variance trade-off we have smaller variance for the CV approach than the LOOCV, but again LOOCV has smaller bias. 
 
 
 ## Repeated K-fold CV
 
 ```{r , echo=TRUE}
+train.control <- trainControl(method = "repeatedcv", 
+                              number = 5, repeats = 4)
+set.seed(0)
+pred.knn.rcv <- train(CL~.,
+                     method     = "knn",
+                     tuneGrid   = expand.grid(k = 1:20),
+                     trControl  = train.control,
+                     metric     = "Accuracy",
+                     data       = cbind(CL = as.factor(train.data[,33]), train.data[,-33]))
+# Summarize the results
+print(pred.knn.rcv)
+plot(pred.knn.rcv)
 
+# Prediction of fitted model
+fit_rcv <- predict(pred.knn.rcv,newdata = test.data)
+
+# Make confusion matrix 
+confusionMatrix(test.data$y, fit_rcv)
+
+# Calculate accuracy
+mean(test.data$y == fit_rcv)
+
+# Calculate misclassification error 
+mean(test.data$y != fit_rcv)
 
 ```
 
