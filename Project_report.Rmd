@@ -118,6 +118,7 @@ handled_flights$CANCELLATION_REASON <- NULL
 handled_flights$CANCELLED <- NULL
 handled_flights$DIVERTED <- NULL
 
+#Erase columns which have NA for some observations
 handled_flights$AIR_SYSTEM_DELAY <- NULL
 handled_flights$SECURITY_DELAY <- NULL
 handled_flights$AIRLINE_DELAY <- NULL
@@ -134,7 +135,13 @@ handled_flights$DELAY <- handled_flights$ARRIVAL_DELAY
 handled_flights$DELAY <- ifelse(handled_flights$DELAY > 0,handled_flights$DELAY <- 1,handled_flights$DELAY <- 0)
 
 
+#Try to remove some columns (here I used only 2, but then R gives an error, when doing k-fold
+#becuase it thinks I am doing regression...)
 
+#Use only the 4th and 23th columns (Airline, Delay)
+handled_flights2 <- handled_flights[c(4,23)]
+
+############## Another approach ####################################
 
 #Add all delay variables to see if the trip in total are delayed or not
 flights$TOTAL_DELAY <- flights$DEPARTURE_DELAY + flights$ARRIVAL_DELAY
@@ -200,8 +207,8 @@ The advantages with LOOCV is that there is no randomsness in splitting the data 
 ```{r , echo=TRUE}
 # Spliting data as training and test set using createDataPartition() function from caret
 indxTrain <- createDataPartition(y = flights[,33],p = 0.8,list = FALSE)
-train.data <- genes[indxTrain,]
-valid.data <- genes[-indxTrain,]
+train.data <- genes[indxTrain,]    ### WHY genes?????
+valid.data <- genes[-indxTrain,]   ### ISN'T IT test.data????
 
 train.control <- trainControl(method = "cv",number = 10) 
 # Train the model
@@ -218,7 +225,7 @@ print(pred.knn.cv)
 plot(pred.knn.cv)
 
 # Prediction of fitted model
-fit_cv <- predict(pred.knn.cv,newdata = test.data)
+fit_cv <- predict(pred.knn.cv,newdata = test.data)  ### WHERE IS test.data defined?
 
 # Make confusion matrix 
 confusionMatrix(test.data$y, fit_cv)
@@ -235,6 +242,7 @@ mean(test.data$y != fit_cv)
 
 ```{r , echo=TRUE}
 #Using handled_flights
+
 # Spliting data as training and test set using createDataPartition() function from caret
 indxTrain <- createDataPartition(y = handled_flights[,23], p = 0.8,list = FALSE)
 train.data <- handled_flights[indxTrain,]
@@ -248,7 +256,9 @@ pred.knn.cv <- train(CL~.,
                      tuneGrid   = expand.grid(k = 1:20),
                      trControl  = train.control,
                      metric     = "Accuracy",
-                     data       = cbind(CL = as.factor(train.data[,23]), train.data[,-23]))
+                     data       = cbind(CL = as.factor(train.data[,23]), train.data[,-2]))
+#Error: vector memory exhausted (limit reached?)
+
 
 # Summarize the results
 print(pred.knn.cv)
