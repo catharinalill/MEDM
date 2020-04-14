@@ -71,6 +71,8 @@ library(class)    #for confusion matrices
 library(caret)    #for knn function
 library(GGally)
 library(corrplot)
+library(MASS)     #for LDA
+library(leaps)    #for Forward selection
 #NEED TO CREATE RESPONSE VARIABLE HERE
 
 
@@ -128,26 +130,50 @@ handled_flights$WEATHER_DELAY <- NULL
 #Erase the observations for which there was no information concerning the arrival delay
 handled_flights<- handled_flights[is.na(handled_flights$ARRIVAL_DELAY)==FALSE,]
 
-#Create nem column (DELAY: 0 if the flight is not delayed, 1 if the flight is delayed) 
-##Here we consider only the arrival delay
-handled_flights$DELAY <- handled_flights$ARRIVAL_DELAY
+#Create new column (DELAY: 0 if the flight is not delayed by more than 5 minutes, 1 if the flight is delayed by more than 5 minutes) 
+#Here we consider only the arrival delay  (THIS CHOICE SHOULD BE JUSTIFIED IN THE REPORT!)
 
-handled_flights$DELAY <- ifelse(handled_flights$DELAY > 0,handled_flights$DELAY <- 1,handled_flights$DELAY <- 0)
-
+handled_flights$DELAY <- ifelse(handled_flights$ARRIVAL_DELAY > 5,handled_flights$DELAY <- 1,handled_flights$DELAY <- 0)
 
 #Try to remove some columns (here I used only 2, but then R gives an error, when doing k-fold
 #becuase it thinks I am doing regression...)
 
+
+#Need to do variable selection here
+#Try Forward Selection
+regfit.full = regsubsets(DELAY~.,data = handled_flights,method = "forward")
+reg.summary = summary(regfit.full)
+
+#Plot adjusted R^2, C_p and BIC for all the models at once
+par(mfrow =c(3,2))
+
+plot(reg.summary$adjr2,xlab="Number of Variables", ylab = "Adjusted RSq", type = "1")
+adjr2_max = which.max(reg.summary$adjr2)
+points(adjr2_max, reg.summary$adjr2[adjr2_max], col = "red", cex = 2, pch = 20)
+
+plot(reg.summary$bic,xlab="Number of Variables", ylab = "BIC", type = "1")
+bic_min = which.min(reg.summary$bic)
+points(bic_min, reg.summary$bic[bic_min], col = "red", cex = 2, pch = 20)
+
+plot(reg.summary$cp,xlab="Number of Variables", ylab = "Cp", type = "1")
+cp_min = which.min(reg.summary$cp)
+points(cp_min, reg.summary$cp[cp_min], col = "red", cex = 2, pch = 20)
+
+#From this we can choose the "best" model and use this subset of variables to do the classification
+
+
+
+#Need to have a larger subset of varibales here
 #Use only the 4th and 23th columns (Airline, Delay)
 handled_flights2 <- handled_flights[c(4,23)]
 
 ############## Another approach ####################################
 
 #Add all delay variables to see if the trip in total are delayed or not
-flights$TOTAL_DELAY <- flights$DEPARTURE_DELAY + flights$ARRIVAL_DELAY
+#flights$TOTAL_DELAY <- flights$DEPARTURE_DELAY + flights$ARRIVAL_DELAY
 
 #Make new variable delayed (yes/no)
-ifelse(flights$TOTAL_DELAY > 0,flights$DELAYED <- 1,flights$DELAYED <- 0)
+#ifelse(flights$TOTAL_DELAY > 0,flights$DELAYED <- 1,flights$DELAYED <- 0)
 
 
 ```
@@ -177,7 +203,8 @@ ifelse(flights$TOTAL_DELAY > 0,flights$DELAYED <- 1,flights$DELAYED <- 0)
 
 
 ``` 
-   
+
+    
 ## Resubstitution
 
 ```{r , echo=TRUE}
@@ -206,9 +233,9 @@ The advantages with LOOCV is that there is no randomsness in splitting the data 
 
 ```{r , echo=TRUE}
 # Spliting data as training and test set using createDataPartition() function from caret
-indxTrain <- createDataPartition(y = flights[,33],p = 0.8,list = FALSE)
-train.data <- genes[indxTrain,]    ### WHY genes?????
-valid.data <- genes[-indxTrain,]   ### ISN'T IT test.data????
+indxTrain <- createDataPartition(y = handled_flights2[,23], p = 0.8,list = FALSE)
+train.data <- handled_flights2[indxTrain,]
+test.data <- handled_flights2[-indxTrain,]
 
 train.control <- trainControl(method = "cv",number = 10) 
 # Train the model
@@ -218,45 +245,7 @@ pred.knn.cv <- train(CL~.,
                      tuneGrid   = expand.grid(k = 1:20),
                      trControl  = train.control,
                      metric     = "Accuracy",
-                     data       = cbind(CL = as.factor(train.data[,33]), train.data[,-33]))
-
-# Summarize the results
-print(pred.knn.cv)
-plot(pred.knn.cv)
-
-# Prediction of fitted model
-fit_cv <- predict(pred.knn.cv,newdata = test.data)  ### WHERE IS test.data defined?
-
-# Make confusion matrix 
-confusionMatrix(test.data$y, fit_cv)
-
-# Calculate accuracy
-mean(test.data$y == fit_cv)
-
-# Calculate misclassification error 
-mean(test.data$y != fit_cv)
-
-
-```
-
-
-```{r , echo=TRUE}
-#Using handled_flights
-
-# Spliting data as training and test set using createDataPartition() function from caret
-indxTrain <- createDataPartition(y = handled_flights[,23], p = 0.8,list = FALSE)
-train.data <- handled_flights[indxTrain,]
-test.data <- handled_flights[-indxTrain,]
-
-train.control <- trainControl(method = "cv",number = 10) 
-# Train the model
-set.seed(0) # To fix the random process at splitting data
-pred.knn.cv <- train(CL~.,
-                     method     = "knn",
-                     tuneGrid   = expand.grid(k = 1:20),
-                     trControl  = train.control,
-                     metric     = "Accuracy",
-                     data       = cbind(CL = as.factor(train.data[,23]), train.data[,-2]))
+                     data       = cbind(CL = as.factor(train.data[,23]), train.data[,-23]))
 #Error: vector memory exhausted (limit reached?)
 
 
@@ -296,7 +285,7 @@ pred.knn.rcv <- train(CL~.,
                      tuneGrid   = expand.grid(k = 1:20),
                      trControl  = train.control,
                      metric     = "Accuracy",
-                     data       = cbind(CL = as.factor(train.data[,33]), train.data[,-33]))
+                     data       = cbind(CL = as.factor(train.data[,23]), train.data[,-23]))
 # Summarize the results
 print(pred.knn.rcv)
 plot(pred.knn.rcv)
