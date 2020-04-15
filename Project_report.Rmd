@@ -120,7 +120,7 @@ handled_flights$CANCELLATION_REASON <- NULL
 handled_flights$CANCELLED <- NULL
 handled_flights$DIVERTED <- NULL
 
-#Erase columns which have NA for some observations
+#Erase columns which have NA for some observations (WE CAN CONSIDER SETTING THIS CELLS TO ZERO)
 handled_flights$AIR_SYSTEM_DELAY <- NULL
 handled_flights$SECURITY_DELAY <- NULL
 handled_flights$AIRLINE_DELAY <- NULL
@@ -135,9 +135,7 @@ handled_flights<- handled_flights[is.na(handled_flights$ARRIVAL_DELAY)==FALSE,]
 
 handled_flights$DELAY <- ifelse(handled_flights$ARRIVAL_DELAY > 5,handled_flights$DELAY <- 1,handled_flights$DELAY <- 0)
 
-#Try to remove some columns (here I used only 2, but then R gives an error, when doing k-fold
-#becuase it thinks I am doing regression...)
-
+# WE MAY CONSIDER REDUCING THE SAMPLE SIZE!
 
 #Need to do variable selection here
 #Try Forward Selection
@@ -162,10 +160,6 @@ points(cp_min, reg.summary$cp[cp_min], col = "red", cex = 2, pch = 20)
 #From this we can choose the "best" model and use this subset of variables to do the classification
 
 
-
-#Need to have a larger subset of varibales here
-#Use only the 4th and 23th columns (Airline, Delay)
-handled_flights2 <- handled_flights[c(4,23)]
 
 ############## Another approach ####################################
 
@@ -233,9 +227,9 @@ The advantages with LOOCV is that there is no randomsness in splitting the data 
 
 ```{r , echo=TRUE}
 # Spliting data as training and test set using createDataPartition() function from caret
-indxTrain <- createDataPartition(y = handled_flights2[,23], p = 0.8,list = FALSE)
-train.data <- handled_flights2[indxTrain,]
-test.data <- handled_flights2[-indxTrain,]
+indxTrain <- createDataPartition(y = handled_flights[,23], p = 0.8,list = FALSE)
+train.data <- handled_flights[indxTrain,]
+test.data <- handled_flights[-indxTrain,]
 
 train.control <- trainControl(method = "cv",number = 10) 
 # Train the model
