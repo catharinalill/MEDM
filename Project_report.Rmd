@@ -67,12 +67,16 @@ Initial steps:
 
 ```{r , echo=TRUE}
 library(ggplot2)  #for ggplot
-library(class)    #for confusion matrices
+#library(class)    #for confusion matrices
 library(caret)    #for knn function
+library(kknn)     #for kknn function
 library(GGally)
 library(corrplot)
+library(DataExplorer)
+library(dplyr)
 library(MASS)     #for LDA
 library(leaps)    #for Forward selection
+
 #NEED TO CREATE RESPONSE VARIABLE HERE
 
 
@@ -130,18 +134,57 @@ handled_flights$WEATHER_DELAY <- NULL
 #Erase the observations for which there was no information concerning the arrival delay
 handled_flights<- handled_flights[is.na(handled_flights$ARRIVAL_DELAY)==FALSE,]
 
-#Create new column (DELAY: 0 if the flight is not delayed by more than 5 minutes, 1 if the flight is delayed by more than 5 minutes) 
+
+#Find the percentages of each airline
+n = dim(handled_flights)[1]
+counts <- table(handled_flights$AIRLINE)
+percentage <- counts/n
+percentage
+
+#Sample 100 000 of original data set 
+flights_small <- sample_n(handled_flights, 100000)
+#Find the percentages of each airline in small dataset
+n2 = dim(flights_small)[1]
+counts2 <- table(flights_small$AIRLINE)
+percentage2 <- counts2/n2
+percentage2
+#Comment that we see that these percentages is the same so this is okay to do
+
+#Create new column for response variable DELAY: 0 if the flight is not delayed by more than 5 minutes, 1 if the flight is delayed by 5-20 minutes, 2 if the flight is delayed by more than 20 minutes
 #Here we consider only the arrival delay  (THIS CHOICE SHOULD BE JUSTIFIED IN THE REPORT!)
+temp = ifelse(flights_small$ARRIVAL_DELAY < 6,flights_small$DELAY <- 0,ifelse(flights_small$ARRIVAL_DELAY <21,flights_small$DELAY <- 1,flights_small$DELAY <- 2))
+flights_small$DELAY = temp
 
-handled_flights$DELAY <- ifelse(handled_flights$ARRIVAL_DELAY > 5,handled_flights$DELAY <- 1,handled_flights$DELAY <- 0)
+#Correlation
+plot_correlation((flights_small[, 1:22]), type = "continuous")
 
-#Try to remove some columns (here I used only 2, but then R gives an error, when doing k-fold
-#becuase it thinks I am doing regression...)
+#Looking at the correlation plot we remove variable with correlation coefficient larger than 0.9
+handled_flights_small = flights_small[,]
+handled_flights_small$DEPARTURE_DELAY <- NULL
+handled_flights_small$WHEELS_ON <- NULL
+handled_flights_small$WHEELS_OFF <- NULL
+handled_flights_small$SCHEDULED_ARRIVAL <- NULL
+handled_flights_small$SCHEDULED_DEPARTURE <- NULL
+handled_flights_small$ELAPSED_TIME <- NULL
+handled_flights_small$AIR_TIME <- NULL
+handled_flights_small$DISTANCE <- NULL
+
+plot_correlation((handled_flights_small[, 1:14]), type = "continuous")
+
+#Categorical variables
+plot_bar(handled_flights_small)
+
+#SHOULD WE CONCIDER THE CATEGORICAL VARIABLES HERE??
+```
 
 
-#Need to do variable selection here
+
+
+```{r , echo=TRUE}
+
+################### Another approach of variable selection #########################
 #Try Forward Selection
-regfit.full = regsubsets(DELAY~.,data = handled_flights,method = "forward")
+regfit.full = regsubsets(DELAY~.,data = flights_small,method = "forward")
 reg.summary = summary(regfit.full)
 
 #Plot adjusted R^2, C_p and BIC for all the models at once
@@ -216,7 +259,40 @@ handled_flights2 <- handled_flights[c(4,23)]
 ## Hold Out method
 
 ```{r , echo=TRUE}
+set.seed(0) # To fix the random process at splitting data
+# Spliting data as training and test set using createDataPartition() function from caret
+indxTrain <- createDataPartition(y = handled_flights_small[,15], p = 0.8,list = FALSE)
+train.data <- handled_flights_small[indxTrain,]
+test.data <- handled_flights_small[-indxTrain,]
 
+#Checking distribution in original and partitioned data
+prop.table(table(train.data$y)) * 100 # at training 
+prop.table(table(test.data$y)) * 100  # at testing
+prop.table(table(handled_flights_small$y)) * 100  # at original dataset
+#WHY DOES THIS NOT WORK??
+
+#Make model
+pred.knn.m1 <- kknn(formula = formula(train.data[,15]~.), train = train.data, test = test.data, k = 5, distance = 1)
+fit.m1<-fitted(pred.knn.m1)
+
+#Classification error
+mean(test.data[,15] != fit.m1)
+
+#Accuracy
+mean(test.data[,15] == fit.m1)
+
+#Confusion matrix
+table(test.data[,15] , fit.m1)
+
+#if predicted value is 0 (i.e. not delayed), find the airline and make a count
+#Find which airlines that are delayed and not
+not_delayed = test.data[test.data$y == 0,]
+some_delay = test.data[test.data$y == 1,]
+delayed = test.data[test.data$y == 2,]
+
+count_0 <- table(not_delayed$AIRLINES)
+count_1 <- table(some_delayed$AIRLINES)
+count_2 <- table(delayed$AIRLINES)
 
 ```
 The training and test set will be dependent on which observations are included in each of them and this could lead to high variability of validation set error. Another disadvantage with hold out method is that due to dividing the training set in two, the sample size for model fitting will be smaller. 
