@@ -67,9 +67,9 @@ Initial steps:
 
 ```{r , echo=TRUE}
 library(ggplot2)  #for ggplot
-#library(class)    #for confusion matrices
+library(class)    #for confusion matrices
 library(caret)    #for knn function
-library(kknn)     #for kknn function
+library(e1071)     #for naive bayes function
 library(GGally)
 library(corrplot)
 library(DataExplorer)
@@ -114,17 +114,17 @@ plot_correlation((flights[, 2:31]), type = "continuous")
 ```{r , echo=TRUE}
 #Create another data variable
 
-##Remove the observations for which the flight was cancelled
-handled_flights <- flights[flights$CANCELLED<1,]
+##Remove the observations for which the flight was cancelled                                            (THIS CHOICE SHOULD BE JUSTIFIED IN THE REPORT!)
+handled_flights <- flights[flights$CANCELLED<1,]  
 #Remove columns YEAR (2015 for all observations), CANCELLATION_REASON (since we are now dealing with flights that 
 #were not cancelled), CANCELLED (will have 0's since these are the flights that were not cancelled)
-#and DIVERTED (will have 0's, non of the non cancelled flights was diverted)
+#and DIVERTED (will have 1's for observations where ARRIVAL DELAY = NA,so we may remove this column)
 handled_flights$YEAR <- NULL
 handled_flights$CANCELLATION_REASON <- NULL
 handled_flights$CANCELLED <- NULL
 handled_flights$DIVERTED <- NULL
 
-#Erase columns which have NA for some observations (WE CAN CONSIDER SETTING THIS CELLS TO ZERO)
+#Erase columns which have NA for some observations (WE CAN CONSIDER SETTING THIS NA CELLS TO ZERO)
 handled_flights$AIR_SYSTEM_DELAY <- NULL
 handled_flights$SECURITY_DELAY <- NULL
 handled_flights$AIRLINE_DELAY <- NULL
@@ -134,6 +134,17 @@ handled_flights$WEATHER_DELAY <- NULL
 #Erase the observations for which there was no information concerning the arrival delay
 handled_flights<- handled_flights[is.na(handled_flights$ARRIVAL_DELAY)==FALSE,]
 
+#Create list of existent airports
+airports_list <- airports$IATA_CODE
+
+#Create list of existent airlines
+airlines_list <- airlines$IATA_CODE
+
+#Erase observations for origin_airports, destination_airports which are not contained in the data frame airports and
+#airlines which are not contained  in the data frame airlines
+handled_flights<- handled_flights[handled_flights$ORIGIN_AIRPORT %in% airports_list,]
+handled_flights<- handled_flights[handled_flights$DESTINATION_AIRPORT %in% airports_list,]
+handled_flights<- handled_flights[handled_flights$AIRLINE %in% airlines_list,]
 
 #Find the percentages of each airline
 n = dim(handled_flights)[1]
@@ -141,8 +152,8 @@ counts <- table(handled_flights$AIRLINE)
 percentage <- counts/n
 percentage
 
-#Sample 100 000 of original data set 
-flights_small <- sample_n(handled_flights, 100000)
+#Sample 100.000 of original data set 
+flights_small <- sample_n(handled_flights, 100000)                                                      #(THIS CHOICE SHOULD BE JUSTIFIED IN THE REPORT!)
 #Find the percentages of each airline in small dataset
 n2 = dim(flights_small)[1]
 counts2 <- table(flights_small$AIRLINE)
@@ -150,10 +161,55 @@ percentage2 <- counts2/n2
 percentage2
 #Comment that we see that these percentages is the same so this is okay to do
 
-#Create new column for response variable DELAY: 0 if the flight is not delayed by more than 5 minutes, 1 if the flight is delayed by 5-20 minutes, 2 if the flight is delayed by more than 20 minutes
-#Here we consider only the arrival delay  (THIS CHOICE SHOULD BE JUSTIFIED IN THE REPORT!)
-temp = ifelse(flights_small$ARRIVAL_DELAY < 6,flights_small$DELAY <- 0,ifelse(flights_small$ARRIVAL_DELAY <21,flights_small$DELAY <- 1,flights_small$DELAY <- 2))
-flights_small$DELAY = temp
+#Count by airline who many flights are delayed in handled_flights
+handled_flightsdelayed<- handled_flights[handled_flights$ARRIVAL_DELAY>0,]
+counts3 <- table(handled_flightsdelayed$AIRLINE)
+percentdelayedbyairline <- counts3/counts
+
+#Count by airline who many flights are delayed in flights_small
+flights_smalldelayed<- flights_small[flights_small$ARRIVAL_DELAY>0,]
+counts4 <- table(flights_smalldelayed$AIRLINE)
+percentdelayedbyairline2 <- counts4/counts2
+
+#Check if the variable distributions are mantained after sampling - YES!
+create_report(flights_small, output_file = 'report_flights_small.html')
+create_report(handled_flights, output_file = 'report_handled_flights.html')
+
+
+#To decide how many minutes define small and big delays, we plot an histogram and consider the median/mean value, for example, considering only the values
+#of ARRIVAL_DELAY > 0, which represent delays
+median(handled_flights$ARRIVAL_DELAY[handled_flights$ARRIVAL_DELAY>0]) #mean = 33.11 median = 15  
+
+#I guess we should consider: no delay: <= 0 min, small delay: 1-15 min, medium delay: 15-33 min, big delay: >33 min  (THIS CHOICE SHOULD BE JUSTIFIED IN THE REPORT!)
+flights_small$DELAY = ifelse(flights_small$ARRIVAL_DELAY < 1,flights_small$DELAY <- 0,
+              ifelse(flights_small$ARRIVAL_DELAY <16,flights_small$DELAY <- 1, 
+                     ifelse(flights_small$ARRIVAL_DELAY <34,flights_small$DELAY <- 2, flights_small$DELAY <- 3)))
+
+
+#Since our objetive is to predict the delay of a flight, we might walk a mile in someone else's shoes, this time, in the shoes of someone who is about to take a flight.
+#So, we must give to the classifier, only the variables correspondent to subjects known a priori: scheduled departure, distance, etc.
+
+#Maintain a priori columns and remove a posteriori columns
+flights_to_predict <- flights_small[,]
+flights_to_predict$DEPARTURE_TIME <- NULL
+flights_to_predict$DEPARTURE_DELAY <- NULL
+flights_to_predict$TAXI_OUT <- NULL                                                            #(THIS CHOICE SHOULD BE JUSTIFIED IN THE REPORT!)
+flights_to_predict$WHEELS_OFF <- NULL
+flights_to_predict$ELAPSED_TIME <- NULL
+flights_to_predict$AIR_TIME <- NULL
+flights_to_predict$DISTANCE <- NULL
+flights_to_predict$WHEELS_ON <- NULL
+flights_to_predict$TAXI_IN <- NULL
+flights_to_predict$ARRIVAL_TIME <- NULL
+flights_to_predict$ARRIVAL_DELAY <- NULL
+
+
+```
+
+
+
+
+```{r , echo=TRUE}
 
 #Correlation
 plot_correlation((flights_small[, 1:22]), type = "continuous")
@@ -174,13 +230,7 @@ plot_correlation((handled_flights_small[, 1:14]), type = "continuous")
 #Categorical variables
 plot_bar(handled_flights_small)
 
-#SHOULD WE CONCIDER THE CATEGORICAL VARIABLES HERE??
-```
-
-
-
-
-```{r , echo=TRUE}
+#SHOULD WE CONSIDER THE CATEGORICAL VARIABLES HERE??
 
 ################### Another approach of variable selection #########################
 #Try Forward Selection
@@ -206,15 +256,6 @@ points(cp_min, reg.summary$cp[cp_min], col = "red", cex = 2, pch = 20)
 
 
 
-############## Another approach ####################################
-
-#Add all delay variables to see if the trip in total are delayed or not
-#flights$TOTAL_DELAY <- flights$DEPARTURE_DELAY + flights$ARRIVAL_DELAY
-
-#Make new variable delayed (yes/no)
-#ifelse(flights$TOTAL_DELAY > 0,flights$DELAYED <- 1,flights$DELAYED <- 0)
-
-
 ```
 
 
@@ -224,6 +265,36 @@ points(cp_min, reg.summary$cp[cp_min], col = "red", cex = 2, pch = 20)
  <!-- Solve your classification problem.  Consider several classification methods and discuss  how  can  they  contribute  for  the  solution  of  your  problem.   Include in your discussion topics such as the options that you have made in building each  classifier;  interpretation  of  results;  validation  of  the  methods  used  and possible assumptions;  advantages and disadvantages of each alternative;  etc. Have  in  mind  that  some  of  the  explanatory  variables  may  be  irrelevant  to the  classification problem and that  you may need to  do  some  preprocessing methodologies of your data set e.g.  dimensionality reduction techniques.-->
 
 ```{r , echo=TRUE}
+#We will use Hold Out Method to partition the sample in train, validation and test data
+
+#Split sample in train (0.7%), validation (0.15) and test (0.15)
+#Train: create the model
+#Validation: choose parameters for classifiers
+#Test: evaluate the fit of the classifier and compare it with the others
+
+set.seed(0)
+num_obs <- dim(flights_to_predict)[1]
+index_list <- c(1:num_obs)
+train_index <- sample(index_list, num_obs*0.7)
+test_valid_index <- setdiff(index_list, train_index)
+test_index <- sample(test_valid_index, length(test_valid_index)*0.5)
+valid_index <- setdiff(test_valid_index, test_index)
+
+train_data <- flights_to_predict[train_index,]
+train_data$DELAY <- NULL
+
+train_data_y <- (flights_to_predict[train_index,])$DELAY
+
+valid_data <- flights_to_predict[valid_index,]
+valid_data$DELAY <- NULL
+
+valid_data_y <- (flights_to_predict[valid_index,])$DELAY
+
+test_data <- flights_to_predict[test_index,]
+test_data$DELAY <- NULL
+
+test_data_y <- (flights_to_predict[test_index,])$DELAY
+
 
 
 ```
@@ -233,17 +304,15 @@ points(cp_min, reg.summary$cp[cp_min], col = "red", cex = 2, pch = 20)
 
 ```{r , echo=TRUE}
 
+modelNB <- naiveBayes(DELAY ~ ., data = flights_to_predict[train_index,])
+predictNB <- predict(modelNB, test_data)
+table(predictNB, test_data_y)
+#Not working - define data types as they should be
+
+
 
 ```
 
-## KNN
-
-```{r , echo=TRUE}
-
-
-``` 
-
-    
 ## Resubstitution
 
 ```{r , echo=TRUE}
@@ -290,8 +359,11 @@ count_0 <- table(not_delayed$AIRLINES)
 count_1 <- table(some_delayed$AIRLINES)
 count_2 <- table(delayed$AIRLINES)
 
+
 ```
 The training and test set will be dependent on which observations are included in each of them and this could lead to high variability of validation set error. Another disadvantage with hold out method is that due to dividing the training set in two, the sample size for model fitting will be smaller. 
+
+
 
 ## LOOCV
 
