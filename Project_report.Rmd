@@ -1,7 +1,10 @@
+R_project - MEDM
+
 ---
 title: "Project MEDM"
 output: html_document
         #pdf_document
+        
 ---
 
 <!-- Press Knit, to make a html-file of the code below. This we can use while working with the report to see how it is. Because the dataset flights in pretty large it takes some time to knit the file.. 
@@ -30,42 +33,14 @@ flights = read.csv("flights.csv")
 ```
 
    
-```{r echo = FALSE}  
- #to prevent the code chunk from printing of the R code
+# Introduction
+From a dataset of over five million flight observations from the U.S. Department of Transportation's (DOT) Bureau of Transportation Statistics, we want to use data mining techniques to select the best airline to fly on, although we only use the delay information.
 
-```
+Our approach is to use several classifiers to predict the delay of flights and then, with that information, find the airline which has the least amount of delay.
 
-<!-- This is a comment. -->
-
-<!--
-Here we can write Latex code, with formulas inline $E=mc^2$, or in a new line,
-$$
-    A = \pi \cdot r^2.
-$$
-This is standard Latex-code, so we can write all mathematical signs by using $\mathbf{A}x = b$. 
-$\hat{Y}$, $Y_i$, $\theta$, $\rho(X,C)$, $x_1^{(1)}$. 
-\textbf{bold text}, \textit{italicized}
-This link includes a list of mathematical symbols written in latex. https://oeis.org/wiki/List_of_LaTeX_mathematical_symbols
--->
-
-   <!-- 1 # means Section  -->
-# PART 1: EXPLORATORTY DATA ANALYSIS 
-
- <!-- Perform a exploratory data analysis and discuss what you have learned from this analysis.
- 
- 
- Aim: Which airline should we fly on? 
- 
-The U.S. Department of Transportation's (DOT) Bureau of Transportation Statistics tracks the on-time performance of domestic flights operated by large air carriers. 
-Summary information on the number of on-time, delayed, canceled, and diverted flights is published in DOT's monthly Air Travel Consumer Report and in this dataset of 2015 flight delays and cancellations.
-
-Initial steps: 
-1-	To solve the classification problem the group must create a new variable through the analysis of the variables associated to the delay that can be used as response variable for the problem aim. 
- 
- -->
-
-
-```{r , echo=TRUE}
+# Exploratory data analysis 
+```{r , echo=FALSE}
+#Libraries
 library(ggplot2)  #for ggplot
 library(class)    #for confusion matrices
 library(caret)    #for knn function
@@ -77,61 +52,59 @@ library(DataExplorer)
 library(dplyr)
 library(MASS)     #for LDA
 library(leaps)    #for Forward selection
+library(colorspace) #for plot colors
+library(dplyr) #for barplots
+library(tidyverse) #for barplots
 
-#NEED TO CREATE RESPONSE VARIABLE HERE
-
-#The first variable in our flights dataset is YEAR = 2015, which is equal for all so we should not include this in the data analysis/classification.
-
-#DATA ANALYSIS
-
-#plot_str(flights[,c(2:10)]) #When we have found the response variable add this: c(2:10,response variable)
-
-#Search for missing values
-#plot_missing(flights)
-
-#Continuous variables
-#plot_histogram(flights[,2:10])
-#plot_density(flights[,2:10])
-
-#Correlation
-#plot_correlation((flights[, 2:31]), type = "continuous")
-#or
-#corrplot(cor(flights),method = "circle")
-
-#plot_bar(flights)
-
-#Check the response variable, plot a histogram and see the distribution, could us qqplot
-#ggplot(data = flights)
-
-#library(DataExplorer)
-#create_report(flights)
-#Check for outliers
-#boxplot(flights[,1]~flights[,101], col=c(1:2))
 ```
 
+The dataset has 5.819.079 observations of 31 variables. Since this dataset is not prepared for classification, we must do this preparation, taking into account what we want to achieve. The goal is to choose the best airline based on the delays of theirs flights, ignoring the canceled and diverted ones. So, we will create a categorical response variable which represents the delay, and choose which variables we want to keep for the classifier.
+
+The variables are: Year, Month, Day, Day of week, Airline, Flight number, Tail number, Origin airport, Destination airport, Schedule departure, Departure time, Departure delay,  Taxi out, Wheels off, Schedule time, Elapsed time, Air time, Distance, Wheels on, Taxi in, Scheduled arrival, Arrival time, Arrival delay, Diverted, Canceled, Cancellation reason, Air system delay, Security delay, Airtime delay, Late aircraft delay, Weather delay.
+
+Since we are ignoring the canceled and diverted flights we removed the variables: Diverted, Canceled, Cancellation reason.
+We noticed that all the flights were from the year 2015. As a result, we eliminate the variable Year, as it has no interest to this problem.
+
+We noticed that some IATA codes for the origin and destination airports did not match any of the IATA codes from the provided list airports. In order to guarantee that the working data set had only valid IATA codes, we removed the observations that did not comply with this for the airports and airlines.
 
 ```{r , echo=TRUE}
 #Create another data variable
 
-##Remove the observations for which the flight was cancelled                                            (THIS CHOICE SHOULD BE JUSTIFIED IN THE REPORT!)
+##Remove the observations for which the flight was canceled            
 handled_flights <- flights[flights$CANCELLED<1,]  
 #Remove columns YEAR (2015 for all observations), CANCELLATION_REASON (since we are now dealing with flights that 
-#were not cancelled), CANCELLED (will have 0's since these are the flights that were not cancelled)
+#were not canceled), CANCELLED (will have 0's since these are the flights that were not cancelled)
 #and DIVERTED (will have 1's for observations where ARRIVAL DELAY = NA,so we may remove this column)
 handled_flights$YEAR <- NULL
 handled_flights$CANCELLATION_REASON <- NULL
 handled_flights$CANCELLED <- NULL
 handled_flights$DIVERTED <- NULL
 
-#Erase columns which have NA for some observations (WE CAN CONSIDER SETTING THIS NA CELLS TO ZERO)
-handled_flights$AIR_SYSTEM_DELAY <- NULL
-handled_flights$SECURITY_DELAY <- NULL
-handled_flights$AIRLINE_DELAY <- NULL
-handled_flights$LATE_AIRCRAFT_DELAY <- NULL
-handled_flights$WEATHER_DELAY <- NULL
 
 #Erase the observations for which there was no information concerning the arrival delay
 handled_flights<- handled_flights[is.na(handled_flights$ARRIVAL_DELAY)==FALSE,]
+
+#Change handled_flights dataframe data types to the correct ones
+#Discrete variables must be considered as FACTORs
+
+handled_flights$MONTH <- as.factor(handled_flights$MONTH)
+handled_flights$DAY <- as.factor(handled_flights$DAY)
+handled_flights$DAY_OF_WEEK <- as.factor(handled_flights$DAY_OF_WEEK)
+handled_flights$FLIGHT_NUMBER <- as.factor(handled_flights$FLIGHT_NUMBER)
+handled_flights$SCHEDULED_DEPARTURE <- as.numeric(handled_flights$SCHEDULED_DEPARTURE)
+handled_flights$DEPARTURE_TIME <- as.numeric(handled_flights$DEPARTURE_TIME)
+handled_flights$DEPARTURE_DELAY <- as.numeric(handled_flights$DEPARTURE_DELAY)
+handled_flights$TAXI_OUT <- as.numeric(handled_flights$TAXI_OUT)
+handled_flights$WHEELS_OFF <- as.numeric(handled_flights$WHEELS_OFF)
+handled_flights$SCHEDULED_TIME <- as.numeric(handled_flights$SCHEDULED_TIME)
+handled_flights$ELAPSED_TIME <- as.numeric(handled_flights$ELAPSED_TIME)
+handled_flights$AIR_TIME <- as.numeric(handled_flights$AIR_TIME)
+handled_flights$DISTANCE <- as.numeric(handled_flights$DISTANCE)
+handled_flights$WHEELS_ON <- as.numeric(handled_flights$WHEELS_ON)
+handled_flights$TAXI_IN <- as.numeric(handled_flights$TAXI_IN)
+handled_flights$SCHEDULED_ARRIVAL <- as.numeric(handled_flights$SCHEDULED_ARRIVAL)
+handled_flights$ARRIVAL_TIME <- as.numeric(handled_flights$ARRIVAL_TIME)
+handled_flights$ARRIVAL_DELAY <- as.numeric(handled_flights$ARRIVAL_DELAY)
 
 #Create list of existent airports
 airports_list <- airports$IATA_CODE
@@ -144,14 +117,90 @@ handled_flights<- handled_flights[handled_flights$ORIGIN_AIRPORT %in% airports_l
 handled_flights<- handled_flights[handled_flights$DESTINATION_AIRPORT %in% airports_list,]
 handled_flights<- handled_flights[handled_flights$AIRLINE %in% airlines_list,]
 
+```
+
+
+## Response variable
+
+When taking a flight, the most common concern is to arrive on time, independently of the delay that may have occurred in the departure. So, we only took into consideration the Arrival delay to build the response variable. 
+
+Since we want to build a classifier we need to define the response variable categories. To do this, we analyzed the delayed flights mean and median. 
+(HISTOGRAM, BOXPLOT)
+The results were: mean - 33.56, median - 15. So, ended up defining the following categories of DELAY:
+- None: Arrival before the scheduled time or on time;
+- Low: Arrival with delay between 1 and 15 minutes;
+- Medium: Arrival with delay between 16 and 33 minutes;
+- High: Arrival with delay greater than 33 minutes.
+
+After defining the response variable we decided to only give to the classifier the variables that someone about to take a flight would know.
+
+
+```{r , echo=TRUE}
+#To define the degree of delay, we consider the median and mean value, for example, considering only the values of ARRIVAL_DELAY > 0, which represent delays
+median(handled_flights$ARRIVAL_DELAY[handled_flights$ARRIVAL_DELAY>0]) #mean = 33.56 median = 15  
+mean(handled_flights$ARRIVAL_DELAY[handled_flights$ARRIVAL_DELAY>0])
+
+#We choose to consider 4 categories: 
+# No delay: <= 0 min, small delay: 1-15 min, medium delay: 15-33 min, big delay: >33 min       
+
+#Sample 100.000 of original data set 
+flights_small <- sample_n(handled_flights, 100000)      #100000         #(THIS CHOICE SHOULD BE JUSTIFIED IN THE REPORT!)
+
+#Define delay as a FACTOR (category)
+flights_small$DELAY <- as.factor( ifelse(flights_small$ARRIVAL_DELAY < 1,flights_small$DELAY <- "None",
+              ifelse(flights_small$ARRIVAL_DELAY <16,flights_small$DELAY <- "Low", 
+                     ifelse(flights_small$ARRIVAL_DELAY <34,flights_small$DELAY <- "Medium", flights_small$DELAY <- "High"))) )
+
+#Barplot of the delays per Airline  
+barplot(table(flights_small$DELAY, flights_small$AIRLINE), main="Car Distribution by Gears and VS",
+  xlab="Airlines", col=c("red", "magenta","orange","yellow"), args.legend = list(x="topleft"),
+  legend = rownames(counts), beside=TRUE) 
+#WANT TO CHANGE THE ORDER OF THE BARS TO: None, Low, Medium, High (maintaining the colors)
+
+
+#Since our objective is to predict the delay of a flight, we might walk a mile in someone else's shoes, this time, in the shoes of someone who is about to take a flight.
+#So, we must give to the classifier, only the variables corresponding to subjects known a priori: scheduled departure, etc.
+
+
+#Maintain a priori columns and remove a posteriori columns
+flights_to_predict <- flights_small[,]
+flights_to_predict$DEPARTURE_TIME <- NULL
+flights_to_predict$DEPARTURE_DELAY <- NULL
+flights_to_predict$TAXI_OUT <- NULL                             
+flights_to_predict$WHEELS_OFF <- NULL
+flights_to_predict$ELAPSED_TIME <- NULL
+flights_to_predict$AIR_TIME <- NULL
+flights_to_predict$DISTANCE <- NULL    
+flights_to_predict$WHEELS_ON <- NULL
+flights_to_predict$TAXI_IN <- NULL
+flights_to_predict$ARRIVAL_TIME <- NULL
+flights_to_predict$ARRIVAL_DELAY <- NULL
+flights_to_predict$AIR_SYSTEM_DELAY <- NULL
+flights_to_predict$SECURITY_DELAY <- NULL
+flights_to_predict$AIRLINE_DELAY <- NULL
+flights_to_predict$LATE_AIRCRAFT_DELAY <- NULL
+flights_to_predict$WEATHER_DELAY <- NULL
+
+```
+
+
+
+## Final data set
+
+After exploring and processing the data according to our goal, the classification problem will have 11 features, where 8 are categorical: Month, Day, Day of week, Airline, Flight number, Tail number, Origin airport, Destination airport; and 3 are continuous: Schedule departure, Schedule time and Schedule arrival
+
+We still want to explain or add the following:
+- size does matter (explained - possible plots to show distributions)
+- chart airlines, per airline - delays
+- maybe consider report charts (distances, distributions, qqplot)
+
+```{r , echo=TRUE}
 #Find the percentages of each airline
 n = dim(handled_flights)[1]
 counts <- table(handled_flights$AIRLINE)
 percentage <- counts/n
 percentage
 
-#Sample 100.000 of original data set 
-flights_small <- sample_n(handled_flights, 1000)      #1000000                                                    #(THIS CHOICE SHOULD BE JUSTIFIED IN THE REPORT!)
 #Find the percentages of each airline in small dataset
 n2 = dim(flights_small)[1]
 counts2 <- table(flights_small$AIRLINE)
@@ -172,38 +221,10 @@ percentdelayedbyairline2 <- counts4/counts2
 percentdelayedbyairline
 percentdelayedbyairline2 
 
-#Check if the variable distributions are mantained after sampling - YES!
-create_report(flights_small, output_file = 'report_flights_small.html')
-create_report(handled_flights, output_file = 'report_handled_flights.html')
+#Check if the variable distributions are maintained after sampling - YES!
+# create_report(flights_small, output_file = 'report_flights_small.html')
+# create_report(handled_flights, output_file = 'report_handled_flights.html')
 
-#To define the degree of delay, we consider the median and mean value, for example, considering only the values of ARRIVAL_DELAY > 0, which represent delays
-median(handled_flights$ARRIVAL_DELAY[handled_flights$ARRIVAL_DELAY>0]) #mean = 33.56 median = 15  
-mean(handled_flights$ARRIVAL_DELAY[handled_flights$ARRIVAL_DELAY>0])
-
-#We choose to consider 4 categories: 
-# No delay: <= 0 min, small delay: 1-15 min, medium delay: 15-33 min, big delay: >33 min  
-# (THIS CHOICE SHOULD BE JUSTIFIED IN THE REPORT!)
-flights_small$DELAY = ifelse(flights_small$ARRIVAL_DELAY < 1,flights_small$DELAY <- 0,
-              ifelse(flights_small$ARRIVAL_DELAY <16,flights_small$DELAY <- 1, 
-                     ifelse(flights_small$ARRIVAL_DELAY <34,flights_small$DELAY <- 2, flights_small$DELAY <- 3)))
-
-
-#Since our objetive is to predict the delay of a flight, we might walk a mile in someone else's shoes, this time, in the shoes of someone who is about to take a flight.
-#So, we must give to the classifier, only the variables corresponding to subjects known a priori: scheduled departure, distance, etc.
-
-#Maintain a priori columns and remove a posteriori columns
-flights_to_predict <- flights_small[,]
-flights_to_predict$DEPARTURE_TIME <- NULL
-flights_to_predict$DEPARTURE_DELAY <- NULL
-flights_to_predict$TAXI_OUT <- NULL                                                            #(THIS CHOICE SHOULD BE JUSTIFIED IN THE REPORT!)
-flights_to_predict$WHEELS_OFF <- NULL
-flights_to_predict$ELAPSED_TIME <- NULL
-flights_to_predict$AIR_TIME <- NULL
-flights_to_predict$DISTANCE <- NULL    ## THIS YOU SAY WE SHOULD KEEP IN THE TEXT ABOVE???
-flights_to_predict$WHEELS_ON <- NULL
-flights_to_predict$TAXI_IN <- NULL
-flights_to_predict$ARRIVAL_TIME <- NULL
-flights_to_predict$ARRIVAL_DELAY <- NULL
 
 #Check correlation
 plot_correlation((flights_to_predict[, 1:11]), type = "continuous")
@@ -269,6 +290,7 @@ points(cp_min, reg.summary$cp[cp_min], col = "red", cex = 2, pch = 20)
 
  <!-- Solve your classification problem.  Consider several classification methods and discuss  how  can  they  contribute  for  the  solution  of  your  problem.   Include in your discussion topics such as the options that you have made in building each  classifier;  interpretation  of  results;  validation  of  the  methods  used  and possible assumptions;  advantages and disadvantages of each alternative;  etc. Have  in  mind  that  some  of  the  explanatory  variables  may  be  irrelevant  to the  classification problem and that  you may need to  do  some  preprocessing methodologies of your data set e.g.  dimensionality reduction techniques.-->
 
+## Hold Out Method
 ```{r , echo=TRUE}
 #Split sample in train (70%), validation (15%) and test (15%)
 #Train: create the model
@@ -284,7 +306,7 @@ test_index <- sample(test_valid_index, length(test_valid_index)*0.5)
 valid_index <- setdiff(test_valid_index, test_index)
 
 train_data <- flights_to_predict[train_index,]
-#train_data$DELAY <- NULL     #WHY DO WE NEED TO DO THIS???
+#train_data$DELAY <- NULL     
 
 train_data_y <- (flights_to_predict[train_index,])$DELAY
 
@@ -294,45 +316,24 @@ valid_data <- flights_to_predict[valid_index,]
 valid_data_y <- (flights_to_predict[valid_index,])$DELAY
 
 test_data <- flights_to_predict[test_index,]
-#test_data$DELAY <- NULL    #WHY DO WE NEED TO DO THIS???
+#test_data$DELAY <- NULL    
 
 test_data_y <- (flights_to_predict[test_index,])$DELAY
 
-#Checking distribution in original and partitioned data
-prop.table(table(train_data_y)) * 100 # at training set 
-prop.table(table(test_data_y)) * 100  # at testing set
-prop.table(table(valid_data_y)) * 100  # at validation set
-prop.table(table(flights_to_predict$DELAY)) * 100  # at original dataset
+#Checking distribution in original and partitioned data  
+# prop.table(table(train_data_y)) * 100 # at training set 
+# prop.table(table(test_data_y)) * 100  # at testing set
+# prop.table(table(valid_data_y)) * 100  # at validation set
+# prop.table(table(flights_to_predict$DELAY)) * 100  # at original dataset
 #THIS SEEMS FINE!
 
 
 ```
- <!-- 2 ## means subsection, 3 means subsubsection etc.-->   
-
-## Naive Bayes method
-
-```{r , echo=TRUE}
-
-modelNB <- naiveBayes(DELAY ~ ., data = flights_to_predict[train_index,])
-predictNB <- predict(modelNB, test_data)
-table(predictNB, test_data_y)
-#Not working - define data types as they should be
 
 
+## KNN
 
-```
-
-## Resubstitution
-
-```{r , echo=TRUE}
-
-
-```
-
-
-## Hold Out method
-
-```{r , echo=TRUE}
+```{r , echo=FALSE}
 #We will use Hold Out Method to partition the sample in train, validation and test data
 
 # set.seed(0) 
@@ -340,24 +341,25 @@ table(predictNB, test_data_y)
 #indxTrain <- createDataPartition(y = handled_flights_small[,15], p = 0.8,list = FALSE)
 #train.data <- handled_flights_small[indxTrain,]
 #test.data <- handled_flights_small[-indxTrain,]
-library(colorspace)
+
 co = rainbow_hcl(3)
 
 #Make model
-ks = 1:30 #Choose K from 1 to 30
+ks = 1:10 #Choose K from 1 to 10
 classification_errors = sapply(ks,function(k) {
   pred.knn <- kknn(formula = formula(train_data[,12]~.), train = train_data, test = valid_data, k = k, distance = 1)
   fit <- fitted(pred.knn)
-  mean(test_data[,12] == fit)   #I think this is the accuracy, but it should be the classification variables
+  mean(valid_data[,12] != fit)   #I think this is the accuracy, but it should be the classification variables
 })
 classification_errors
 
-plot(ks, classification_errors, type="o", pch = 16, ylim = c(0, 0.7), col = co[2],
+#Choose the model that has the lowest classification error, use this K
+which.min(classification_errors) #The best k is 7
+
+plot(ks, classification_errors, type="o", pch = 16, ylim = c(0, 1), col = co[2],
      xlab = "Number of neighbors", ylab="Misclassification error")
 
-#MAYBE K = 15 is a good choiche from looking at the plot?
-#Choose the model that has the lowest classification error, use this K
-k_optimal = 15
+k_optimal = 7
 
 pred.knn.m1 <- kknn(formula = formula(train_data[,12]~.), train = train_data, test = test_data, k = k_optimal, distance = 1)
 fit.m1<-fitted(pred.knn.m1)
@@ -386,105 +388,30 @@ count_3 <- table(big_delay$AIRLINES)
 
 
 ```
-The training and test set will be dependent on which observations are included in each of them and this could lead to high variability of validation set error. Another disadvantage with hold out method is that due to dividing the training set in two, the sample size for model fitting will be smaller. 
-
-
-
-## LOOCV
+## Naive Bayes method
 
 ```{r , echo=TRUE}
 
+modelNB <- naiveBayes(formula = formula(train_data[,12]~.), data = train_data)
+predictNB <- predict(modelNB, test_data)
+table(predictNB, test_data_y)
+
+#Compute Naive Bayes error
+mean(test_data[,12] != predictNB)
+
+#Compute Naive Bayes accuracy
+mean(test_data[,12] == predictNB)
 
 ```
-The advantages with LOOCV is that there is no randomsness in splitting the data into training and test set. There is also little bias since nearly the whole data set is used for training, compared to only half the data set for Hold Out method Further, one disadvantage with LOOCV is the expensive implementation because we need to fit $n$ different models. Due to quite similar training sets, since they only differ by one observation, each fold will be highly correlated and this could give high variance for the LOOCV approach as well. 
-   
-## K-fold CV
 
+## Decision Tree
 ```{r , echo=TRUE}
-# Spliting data as training and test set using createDataPartition() function from caret
-indxTrain <- createDataPartition(y = handled_flights[,23], p = 0.8,list = FALSE)
-train.data <- handled_flights[indxTrain,]
-test.data <- handled_flights[-indxTrain,]
 
-train.control <- trainControl(method = "cv",number = 10) 
-# Train the model
-set.seed(0) # To fix the random process at splitting data
-pred.knn.cv <- train(CL~.,
-                     method     = "knn",
-                     tuneGrid   = expand.grid(k = 1:20),
-                     trControl  = train.control,
-                     metric     = "Accuracy",
-                     data       = cbind(CL = as.factor(train.data[,23]), train.data[,-23]))
-#Error: vector memory exhausted (limit reached?)
-
-
-# Summarize the results
-print(pred.knn.cv)
-plot(pred.knn.cv)
-
-# Prediction of fitted model
-fit_cv <- predict(pred.knn.cv,newdata = test.data)
-
-# Make confusion matrix 
-confusionMatrix(test.data$y, fit_cv)
-
-# Calculate accuracy
-mean(test.data$y == fit_cv)
-
-# Calculate misclassification error 
-mean(test.data$y != fit_cv)
 
 
 ```
 
-One disadvantage with using K-fold cross validation is that the result may vary according to how the folds are made. Since the training set is $(k-1)/k$ of the original data set, this will give an estimate of the prediction error that is biased upwards. 
-
-One advantage with cross validation over the LOOCV approach is that there is less computational work when we have $k=10$, instead of $K=N$. 
-By considering the Bias-Variance trade-off we have smaller variance for the CV approach than the LOOCV, but again LOOCV has smaller bias. 
-
-
-## Repeated K-fold CV
-
-```{r , echo=TRUE}
-train.control <- trainControl(method = "repeatedcv", 
-                              number = 5, repeats = 4)
-set.seed(0)
-pred.knn.rcv <- train(CL~.,
-                     method     = "knn",
-                     tuneGrid   = expand.grid(k = 1:20),
-                     trControl  = train.control,
-                     metric     = "Accuracy",
-                     data       = cbind(CL = as.factor(train.data[,23]), train.data[,-23]))
-# Summarize the results
-print(pred.knn.rcv)
-plot(pred.knn.rcv)
-
-# Prediction of fitted model
-fit_rcv <- predict(pred.knn.rcv,newdata = test.data)
-
-# Make confusion matrix 
-confusionMatrix(test.data$y, fit_rcv)
-
-# Calculate accuracy
-mean(test.data$y == fit_rcv)
-
-# Calculate misclassification error 
-mean(test.data$y != fit_rcv)
-
-```
-
-
-
-## Bootstrap
-
-```{r , echo=TRUE}
-
-
-```
-
-
-
-# PART 3: LEARNING/LIMITATIONS/FUTURE WORK
+# Learning/Limitations/Future work
 
  <!-- Imagine you are going to meet the researcher who contacted you.  Report to him/her what you have learned about the problem.  Discuss limitations of the analysis you have done and provide suggestions for future work.-->
 
