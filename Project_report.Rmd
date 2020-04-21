@@ -41,40 +41,45 @@ Our approach is to use several classifiers to predict the delay of flights and t
 # Exploratory data analysis 
 ```{r , echo=FALSE}
 #Libraries
-library(ggplot2)  #for ggplot
-library(class)    #for confusion matrices
-library(caret)    #for knn function
+library(ggplot2)       #for ggplot
+library(class)         #for confusion matrices
+library(caret)         #for knn function
 library(kknn)
-library(e1071)    #for naive bayes function
+library(e1071)         #for naive bayes function
 library(GGally)
 library(corrplot)
 library(DataExplorer)
 library(dplyr)
-library(MASS)     #for LDA
-library(leaps)    #for Forward selection
-library(colorspace) #for plot colors
-library(dplyr) #for barplots
-library(tidyverse) #for barplots
+library(MASS)          #for LDA
+library(nnet)          #for LDA
+library(leaps)         #for Forward selection
+library(colorspace)    #for plot colors
+library(dplyr)         #for barplots
+library(tidyverse)     #for barplots
+library(StatMatch)     #for knngow function
+#library(dprep)        #for knngow function
+library(broom)
+
 
 ```
 
-The dataset has 5.819.079 observations of 31 variables. Since this dataset is not prepared for classification, we must do this preparation, taking into account what we want to achieve. The goal is to choose the best airline based on the delays of theirs flights, ignoring the canceled and diverted ones. So, we will create a categorical response variable which represents the delay, and choose which variables we want to keep for the classifier.
+The dataset has 5.819.079 observations of 31 variables. Since this dataset is not prepared for classification, we must do this preparation, taking into account what we want to achieve. The goal is to choose the best airline based on the delays of their flights, ignoring the cancelled and diverted ones. So, we will create a categorical response variable which represents the delay, and choose which variables we want to keep for the classifier.
 
-The variables are: Year, Month, Day, Day of week, Airline, Flight number, Tail number, Origin airport, Destination airport, Schedule departure, Departure time, Departure delay,  Taxi out, Wheels off, Schedule time, Elapsed time, Air time, Distance, Wheels on, Taxi in, Scheduled arrival, Arrival time, Arrival delay, Diverted, Canceled, Cancellation reason, Air system delay, Security delay, Airtime delay, Late aircraft delay, Weather delay.
+The variables are: `Year`, `Month`, `Day`, `Day of week`, `Airline`, `Flight number`, `Tail number`, `Origin airport`, `Destination airport`, `Schedule departure`, `Departure time`, `Departure delay`,  `Taxi out`, `Wheels off`, `Schedule time`, `Elapsed time`, `Air time`, `Distance`, `Wheels on`, `Taxi in`, `Scheduled arrival`, `Arrival time`, `Arrival delay`, `Diverted`, `Canceled`, `Cancellation reason`, `Air system delay`, `Security delay`, `Airtime delay`, `Late aircraft delay`, `Weather delay`.
+<!--I think it might be unneccecary to list all of these??   
 
-Since we are ignoring the canceled and diverted flights we removed the variables: Diverted, Canceled, Cancellation reason.
-We noticed that all the flights were from the year 2015. As a result, we eliminate the variable Year, as it has no interest to this problem.
+AND we should add `variable name`, because then it is easier to see/read in the text as it gets another font. -->
+
+Since we are ignoring the cancelled and diverted flights we removed the variables: `Diverted`, `Cancelled`, `Cancellation reason`. We noticed that all the flights were from the year 2015. As a result, we eliminate the variable `Year`, as it has no interest to this problem.
 
 We noticed that some IATA codes for the origin and destination airports did not match any of the IATA codes from the provided list airports. In order to guarantee that the working data set had only valid IATA codes, we removed the observations that did not comply with this for the airports and airlines.
 
 ```{r , echo=TRUE}
-#Create another data variable
+#Create another data set
 
-##Remove the observations for which the flight was canceled            
+##Remove the observations for which the flight was cancelled            
 handled_flights <- flights[flights$CANCELLED<1,]  
-#Remove columns YEAR (2015 for all observations), CANCELLATION_REASON (since we are now dealing with flights that 
-#were not canceled), CANCELLED (will have 0's since these are the flights that were not cancelled)
-#and DIVERTED (will have 1's for observations where ARRIVAL DELAY = NA,so we may remove this column)
+#Remove columns YEAR (2015 for all observations), CANCELLATION_REASON (since we are now dealing with flights that were not canceled), CANCELLED (will have 0's since these are the flights that were not cancelled) and DIVERTED (will have 1's for observations where ARRIVAL DELAY = NA,so we may remove this column)
 handled_flights$YEAR <- NULL
 handled_flights$CANCELLATION_REASON <- NULL
 handled_flights$CANCELLED <- NULL
@@ -86,7 +91,6 @@ handled_flights<- handled_flights[is.na(handled_flights$ARRIVAL_DELAY)==FALSE,]
 
 #Change handled_flights dataframe data types to the correct ones
 #Discrete variables must be considered as FACTORs
-
 handled_flights$MONTH <- as.factor(handled_flights$MONTH)
 handled_flights$DAY <- as.factor(handled_flights$DAY)
 handled_flights$DAY_OF_WEEK <- as.factor(handled_flights$DAY_OF_WEEK)
@@ -122,15 +126,17 @@ handled_flights<- handled_flights[handled_flights$AIRLINE %in% airlines_list,]
 
 ## Response variable
 
-When taking a flight, the most common concern is to arrive on time, independently of the delay that may have occurred in the departure. So, we only took into consideration the Arrival delay to build the response variable. 
+When taking a flight, the most common concern is to arrive on time, independently of the delay that may have occurred in the departure. So, we only take into consideration the Arrival delay to build the response variable. 
 
-Since we want to build a classifier we need to define the response variable categories. To do this, we analyzed the delayed flights mean and median. 
+Since we want to build a classifier, we need to define the categories for the response variable. To do this, we analyzed the delayed flights mean and median. 
 (HISTOGRAM, BOXPLOT)
-The results were: mean - 33.56, median - 15. So, ended up defining the following categories of DELAY:
-- None: Arrival before the scheduled time or on time;
-- Low: Arrival with delay between 1 and 15 minutes;
-- Medium: Arrival with delay between 16 and 33 minutes;
-- High: Arrival with delay greater than 33 minutes.
+The results were $mean = 33.56$ and $median = 15$. From this, we defined the following categories of `DELAY`:
+* None: Arrival before the scheduled time or on time;
+* Low: Arrival with delay between 1 and 15 minutes;
+* Medium: Arrival with delay between 16 and 33 minutes;
+* High: Arrival with delay greater than 33 minutes.
+
+<!-- Becomes a point-list when knitting -->
 
 After defining the response variable we decided to only give to the classifier the variables that someone about to take a flight would know.
 
@@ -144,7 +150,7 @@ mean(handled_flights$ARRIVAL_DELAY[handled_flights$ARRIVAL_DELAY>0])
 # No delay: <= 0 min, small delay: 1-15 min, medium delay: 15-33 min, big delay: >33 min       
 
 #Sample 100.000 of original data set 
-flights_small <- sample_n(handled_flights, 100000)      #100000         #(THIS CHOICE SHOULD BE JUSTIFIED IN THE REPORT!)
+flights_small <- sample_n(handled_flights, 1000) #(THIS CHOICE SHOULD BE JUSTIFIED IN THE REPORT!)
 
 #Define delay as a FACTOR (category)
 flights_small$DELAY <- as.factor( ifelse(flights_small$ARRIVAL_DELAY < 1,flights_small$DELAY <- "None",
@@ -187,7 +193,7 @@ flights_to_predict$WEATHER_DELAY <- NULL
 
 ## Final data set
 
-After exploring and processing the data according to our goal, the classification problem will have 11 features, where 8 are categorical: Month, Day, Day of week, Airline, Flight number, Tail number, Origin airport, Destination airport; and 3 are continuous: Schedule departure, Schedule time and Schedule arrival
+After exploring and processing the data according to our goal, the classification problem will have 11 features, where 8 are categorical, these are `Month`, `Day`, `Day of week`, `Airline`, `Flight number`, `Tail number`, `Origin airport`, `Destination airport`, and 3 are continuous, which are `Schedule departure`, `Schedule time` and `Scheduled arrival`.
 
 We still want to explain or add the following:
 - size does matter (explained - possible plots to show distributions)
@@ -229,62 +235,11 @@ percentdelayedbyairline2
 #Check correlation
 plot_correlation((flights_to_predict[, 1:11]), type = "continuous")
 #Maybe comment in the report that this seems okay!
+# NOW THIS IS MAYBE NOT SO IMPORTANT SINCE ALMOST all our variables are categorical
 
 ```
 
-
-
-
-```{r , echo=TRUE}
-
-#Correlation
-plot_correlation((flights_small[, 1:22]), type = "continuous")
-
-#Looking at the correlation plot we remove variable with correlation coefficient larger than 0.9
-handled_flights_small = flights_small[,]
-handled_flights_small$DEPARTURE_DELAY <- NULL
-handled_flights_small$WHEELS_ON <- NULL
-handled_flights_small$WHEELS_OFF <- NULL
-handled_flights_small$SCHEDULED_ARRIVAL <- NULL
-handled_flights_small$SCHEDULED_DEPARTURE <- NULL
-handled_flights_small$ELAPSED_TIME <- NULL
-handled_flights_small$AIR_TIME <- NULL
-handled_flights_small$DISTANCE <- NULL
-
-plot_correlation((handled_flights_small[, 1:14]), type = "continuous")
-
-#Categorical variables
-plot_bar(handled_flights_small)
-
-#SHOULD WE CONSIDER THE CATEGORICAL VARIABLES HERE??
-
-################### Another approach of variable selection #########################
-#Try Forward Selection
-regfit.full = regsubsets(DELAY~.,data = flights_small,method = "forward")
-reg.summary = summary(regfit.full)
-
-#Plot adjusted R^2, C_p and BIC for all the models at once
-par(mfrow =c(3,2))
-
-plot(reg.summary$adjr2,xlab="Number of Variables", ylab = "Adjusted RSq", type = "1")
-adjr2_max = which.max(reg.summary$adjr2)
-points(adjr2_max, reg.summary$adjr2[adjr2_max], col = "red", cex = 2, pch = 20)
-
-plot(reg.summary$bic,xlab="Number of Variables", ylab = "BIC", type = "1")
-bic_min = which.min(reg.summary$bic)
-points(bic_min, reg.summary$bic[bic_min], col = "red", cex = 2, pch = 20)
-
-plot(reg.summary$cp,xlab="Number of Variables", ylab = "Cp", type = "1")
-cp_min = which.min(reg.summary$cp)
-points(cp_min, reg.summary$cp[cp_min], col = "red", cex = 2, pch = 20)
-
-#From this we can choose the "best" model and use this subset of variables to do the classification
-
-
-
-```
-
-
+   
 
 # PART 2: SOLVE CLASSIFICATION PROBLEM
 
@@ -344,24 +299,54 @@ test_data_y <- (flights_to_predict[test_index,])$DELAY
 
 co = rainbow_hcl(3)
 
+##We are supposed to use valid_Data here and not test_Data since w are dividing our data set into 3??
+
 #Make model
 ks = 1:10 #Choose K from 1 to 10
 classification_errors = sapply(ks,function(k) {
-  pred.knn <- kknn(formula = formula(train_data[,12]~.), train = train_data, test = valid_data, k = k, distance = 1)
+  pred.knn <- knngow(formula = formula(train_data[,12]~.), train = train_data, test = valid_data, k = k, distance = 1)
   fit <- fitted(pred.knn)
   mean(valid_data[,12] != fit)   #I think this is the accuracy, but it should be the classification variables
 })
+
+####ANother attempt at calculating class_error
+
+knngow_func <- function (train,valid,k) {
+  p=dim(train)[2]
+  ntest=dim(valid)[1]
+  ntrain=dim(train)[1]
+  classes=rep(0,ntest)
+  if(ntest==ntrain) {     
+    for(i in 1:ntest) { 
+      tempo=order(gower.dist(valid[i,-p],train[-i,-p]))[1:k]
+      classes[i]=moda(train[tempo,p])[1]
+    }
+ } else {
+    for(i in 1:ntest){ 
+      tempo=order(StatMatch::gower.dist(valid[i,-p],train[,-p]))[1:k] 
+      classes[i]=moda(train[tempo,p])[1]}
+    }
+classes
+}
+
+classification_errors = sapply(ks,function(k) {
+  pred.knn <- knngow_func(train_data,valid_data,k)
+  fit <- fitted(pred.knn)
+  mean(valid_data[,12] != fit)   #I think this is the accuracy, but it should be the classification variables
+})
+
+#WE need to use the library dprep for the knngow function, but we are not able to download this... 
+
 classification_errors
 
 #Choose the model that has the lowest classification error, use this K
-which.min(classification_errors) #The best k is 7
+k_optimal = which.min(classification_errors)   #The best k is 7
 
 plot(ks, classification_errors, type="o", pch = 16, ylim = c(0, 1), col = co[2],
      xlab = "Number of neighbors", ylab="Misclassification error")
 
-k_optimal = 7
 
-pred.knn.m1 <- kknn(formula = formula(train_data[,12]~.), train = train_data, test = test_data, k = k_optimal, distance = 1)
+pred.knn.m1 <- knngow(formula = formula(train_data[,12]~.), train = train_data, test = test_data, k = k_optimal, distance = 1)
 fit.m1<-fitted(pred.knn.m1)
 fit.m1
 
@@ -404,10 +389,65 @@ mean(test_data[,12] == predictNB)
 
 ```
 
-## Decision Tree
+## Logistic regression   
+   
 ```{r , echo=TRUE}
 
+#Fit model
+model_logreg <- glm(DELAY~. ,data = train_data, family = binomial, control = list(maxit = 100))
+summary(model_logreg)
+tidy(model_logreg, exponentiate = TRUE, conf.level = 0.95)
 
+#From this we choose the significant variables using a significance level of 0.05
+model <- 
+
+probabilities <- model %>% predict(test_data, type = "response")
+
+predicted_classes <- ifelse(probabilities > 0.5, "1", "0")
+
+
+confusion_matrix <- table(Predicted = predicted_classes, Reference = test_data$DELAY)
+confusion_matrix
+
+#Calculate Accuracy
+mean(predicted_classes == test_data$DELAY)
+
+```
+
+## Linear Discriminant Analysis
+   
+Since we have a multiclass classification problem, another possible choice of classifier is to use the linear discriminant analysis. 
+```{r , echo=TRUE}
+#Variable selection to reduce computation time and not run out of memory
+
+
+#Fit model
+model_lda <- multinom(DELAY~. ,data = train_data)
+summary(model_lda)
+
+probabilities <- model_lda %>% predict(test_data, type = "response")
+
+predicted_classes <- ifelse(probabilities > 0.5, "1", "0")
+
+
+confusion_matrix <- table(Predicted = predicted_classes, Reference = test_data$DELAY)
+confusion_matrix
+
+#Calculate Accuracy
+mean(predicted_classes == test_data$DELAY)
+
+
+```
+
+
+
+## Decision Tree
+```{r , echo=TRUE}
+library(tree)
+library(ISLR)
+
+library(rpart)
+tree <- rpart(DELAY ~., data = train_data, method = "class")
 
 ```
 
