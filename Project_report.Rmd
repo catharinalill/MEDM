@@ -56,10 +56,10 @@ library(leaps)         #for Forward selection
 library(colorspace)    #for plot colors
 library(dplyr)         #for barplots
 library(tidyverse)     #for barplots
-library(StatMatch)     #for knngow function
-#library(dprep)        #for knngow function
+# library(StatMatch)     #for knngow function
+# library(dprep)        #for knngow function
 library(broom)
-
+library(rpart)
 
 ```
 
@@ -150,18 +150,23 @@ mean(handled_flights$ARRIVAL_DELAY[handled_flights$ARRIVAL_DELAY>0])
 # No delay: <= 0 min, small delay: 1-15 min, medium delay: 15-33 min, big delay: >33 min       
 
 #Sample 100.000 of original data set 
-flights_small <- sample_n(handled_flights, 1000) #(THIS CHOICE SHOULD BE JUSTIFIED IN THE REPORT!)
+flights_small <- sample_n(handled_flights, 10000) #(THIS CHOICE SHOULD BE JUSTIFIED IN THE REPORT!)
 
 #Define delay as a FACTOR (category)
-flights_small$DELAY <- as.factor( ifelse(flights_small$ARRIVAL_DELAY < 1,flights_small$DELAY <- "None",
-              ifelse(flights_small$ARRIVAL_DELAY <16,flights_small$DELAY <- "Low", 
-                     ifelse(flights_small$ARRIVAL_DELAY <34,flights_small$DELAY <- "Medium", flights_small$DELAY <- "High"))) )
+# flights_small$DELAY <- as.factor( ifelse(flights_small$ARRIVAL_DELAY < 1,flights_small$DELAY <- "None",
+#               ifelse(flights_small$ARRIVAL_DELAY <16,flights_small$DELAY <- "Low", 
+#                      ifelse(flights_small$ARRIVAL_DELAY <34,flights_small$DELAY <- "Medium", flights_small$DELAY <- "High"))) )
 
-#Barplot of the delays per Airline  
-barplot(table(flights_small$DELAY, flights_small$AIRLINE), main="Car Distribution by Gears and VS",
+#Define only 2 categories (None, Delayed) instead of 4
+flights_small$DELAY <- as.factor( ifelse(flights_small$ARRIVAL_DELAY < 1,flights_small$DELAY <- "None", flights_small$DELAY <- "Delayed"))
+
+
+#Barplot of the delays per Airline
+barplot(table(flights_small$DELAY, flights_small$AIRLINE), main="Categories of delay by Airline",
   xlab="Airlines", col=c("red", "magenta","orange","yellow"), args.legend = list(x="topleft"),
-  legend = rownames(counts), beside=TRUE) 
+  legend = rownames(table(flights_small$DELAY, flights_small$AIRLINE)), beside=TRUE)
 #WANT TO CHANGE THE ORDER OF THE BARS TO: None, Low, Medium, High (maintaining the colors)
+
 
 
 #Since our objective is to predict the delay of a flight, we might walk a mile in someone else's shoes, this time, in the shoes of someone who is about to take a flight.
@@ -186,6 +191,33 @@ flights_to_predict$SECURITY_DELAY <- NULL
 flights_to_predict$AIRLINE_DELAY <- NULL
 flights_to_predict$LATE_AIRCRAFT_DELAY <- NULL
 flights_to_predict$WEATHER_DELAY <- NULL
+
+#Separate data into the 4 categories and report results
+
+nodelay <- flights_to_predict[flights_to_predict$DELAY=="None",]
+lowdelay <- flights_to_predict[flights_to_predict$DELAY=='Low',]
+mediumdelay <- flights_to_predict[flights_to_predict$DELAY=='Medium',]
+highdelay <- flights_to_predict[flights_to_predict$DELAY=='High',]
+
+# create_report(nodelay, output_file = 'nodelay.html')
+# create_report(lowdelay, output_file = 'lowdelay.html')
+# create_report(mediumdelay, output_file = 'mediumdelay.html')
+# create_report(highdelay, output_file = 'highdelay.html')
+
+#Temporary remove this variables 
+# flights_to_predict$MONTH <- NULL
+# flights_to_predict$DAY <- NULL
+# flights_to_predict$DAY_OF_WEEK <- NULL
+# flights_to_predict$FLIGHT_NUMBER <- NULL
+# flights_to_predict$TAIL_NUMBER <- NULL
+# flights_to_predict$ORIGIN_AIRPORT <- NULL
+# flights_to_predict$DESTINATION_AIRPORT <- NULL
+# flights_to_predict$SCHEDULED_DEPARTURE <- NULL
+# flights_to_predict$SCHEDULED_ARRIVAL <- NULL
+# flights_to_predict$SCHEDULED_TIME <- NULL
+# flights_to_predict$AIRLINE <- NULL
+
+
 
 ```
 
@@ -261,18 +293,20 @@ test_index <- sample(test_valid_index, length(test_valid_index)*0.5)
 valid_index <- setdiff(test_valid_index, test_index)
 
 train_data <- flights_to_predict[train_index,]
-#train_data$DELAY <- NULL     
-
+train_data_x <- flights_to_predict[train_index,]
+train_data_x$DELAY <- NULL 
 train_data_y <- (flights_to_predict[train_index,])$DELAY
 
-valid_data <- flights_to_predict[valid_index,]
-#valid_data$DELAY <- NULL
 
+valid_data <- flights_to_predict[valid_index,]
+valid_data_x <- flights_to_predict[valid_index,]
+valid_data_x$DELAY <- NULL 
 valid_data_y <- (flights_to_predict[valid_index,])$DELAY
 
-test_data <- flights_to_predict[test_index,]
-#test_data$DELAY <- NULL    
 
+test_data <- flights_to_predict[test_index,]
+test_data_x <- flights_to_predict[test_index,]
+test_data_x$DELAY <- NULL 
 test_data_y <- (flights_to_predict[test_index,])$DELAY
 
 #Checking distribution in original and partitioned data  
@@ -291,85 +325,78 @@ test_data_y <- (flights_to_predict[test_index,])$DELAY
 ```{r , echo=FALSE}
 #We will use Hold Out Method to partition the sample in train, validation and test data
 
-# set.seed(0) 
-# Spliting data as training and test set using createDataPartition() function from caret
-#indxTrain <- createDataPartition(y = handled_flights_small[,15], p = 0.8,list = FALSE)
-#train.data <- handled_flights_small[indxTrain,]
-#test.data <- handled_flights_small[-indxTrain,]
-
 co = rainbow_hcl(3)
 
-##We are supposed to use valid_Data here and not test_Data since w are dividing our data set into 3??
+##We are supposed to use valid_Data here and not test_Data since w are dividing our data set into 3?? YES
 
 #Make model
 ks = 1:10 #Choose K from 1 to 10
 classification_errors = sapply(ks,function(k) {
-  pred.knn <- knngow(formula = formula(train_data[,12]~.), train = train_data, test = valid_data, k = k, distance = 1)
+  pred.knn <- kknn(formula = formula(train_data_y~.), train = train_data, test = valid_data, k = k, distance = 1)
   fit <- fitted(pred.knn)
-  mean(valid_data[,12] != fit)   #I think this is the accuracy, but it should be the classification variables
+  mean(valid_data_y != fit)   #I think this is the accuracy, but it should be the classification variables
 })
 
-####ANother attempt at calculating class_error
+####ANother attempt at calculating class_error############################ THINK WE DO NOT NEED THIS
 
-knngow_func <- function (train,valid,k) {
-  p=dim(train)[2]
-  ntest=dim(valid)[1]
-  ntrain=dim(train)[1]
-  classes=rep(0,ntest)
-  if(ntest==ntrain) {     
-    for(i in 1:ntest) { 
-      tempo=order(gower.dist(valid[i,-p],train[-i,-p]))[1:k]
-      classes[i]=moda(train[tempo,p])[1]
-    }
- } else {
-    for(i in 1:ntest){ 
-      tempo=order(StatMatch::gower.dist(valid[i,-p],train[,-p]))[1:k] 
-      classes[i]=moda(train[tempo,p])[1]}
-    }
-classes
-}
+# knngow_func <- function (train,valid,k) {
+#   p=dim(train)[2]
+#   ntest=dim(valid)[1]
+#   ntrain=dim(train)[1]
+#   classes=rep(0,ntest)
+#   if(ntest==ntrain) {     
+#     for(i in 1:ntest) { 
+#       tempo=order(gower.dist(valid[i,-p],train[-i,-p]))[1:k]
+#       classes[i]=moda(train[tempo,p])[1]
+#     }
+#  } else {
+#     for(i in 1:ntest){ 
+#       tempo=order(StatMatch::gower.dist(valid[i,-p],train[,-p]))[1:k] 
+#       classes[i]=moda(train[tempo,p])[1]}
+#     }
+# classes
+# }
+# 
+# classification_errors = sapply(ks,function(k) {
+#   pred.knn <- knngow_func(train_data,valid_data,k)
+#   fit <- fitted(pred.knn)
+#   mean(valid_data[,12] != fit)   #I think this is the accuracy, but it should be the classification variables
+# })
 
-classification_errors = sapply(ks,function(k) {
-  pred.knn <- knngow_func(train_data,valid_data,k)
-  fit <- fitted(pred.knn)
-  mean(valid_data[,12] != fit)   #I think this is the accuracy, but it should be the classification variables
-})
-
-#WE need to use the library dprep for the knngow function, but we are not able to download this... 
-
-classification_errors
+######################################################################### NOT ABLE TO DOWNLOAD dprep EITHER
 
 #Choose the model that has the lowest classification error, use this K
 k_optimal = which.min(classification_errors)   #The best k is 7
 
+#Plot errors as a function of k
 plot(ks, classification_errors, type="o", pch = 16, ylim = c(0, 1), col = co[2],
      xlab = "Number of neighbors", ylab="Misclassification error")
 
+pred.knn.m1 <- kknn(formula = formula(train_data_y~.), train = train_data, test = test_data, k = k_optimal, distance = 1)
+fitKNN <- fitted(pred.knn.m1)
 
-pred.knn.m1 <- knngow(formula = formula(train_data[,12]~.), train = train_data, test = test_data, k = k_optimal, distance = 1)
-fit.m1<-fitted(pred.knn.m1)
-fit.m1
+predictKNN <- predict(fitKNN, test = test_data_x)
 
 #Classification error
-mean(test_data[,12] != fit.m1)
+mean(test_data_y != predictKNN)
 
 #Accuracy
-mean(test_data[,12] == fit.m1)
+mean(test_data_y == predictKNN)
 
 #Confusion matrix
-table(test_data[,12] , fit.m1)
+table(test_data_y , predictKNN)
 
-#If predicted value is 0 (i.e. not delayed), find the airline and make a count
-#Find which airlines that are delayed and not
-no_delay = test_data[test_data$DELAY == 0,]
-small_delay = test_data[test_data$DELAY == 1,]
-medium_delay =  test_data[test_data$DELAY == 2,]
-big_delay = test_data[test_data$DELAY == 3,]
 
-count_0 <- table(no_delay$AIRLINES)
-count_1 <- table(small_delay$AIRLINES)
-count_2 <- table(medium_delay$AIRLINES)
-count_3 <- table(big_delay$AIRLINES)
+#Find the frequency of the categories for each airline
+
+tableKNN<- cbind(test_data_x, predictKNN)
+
+
+#Barplot of the delays per Airline  
+barplot(table(tableKNN$predictKNN, tableKNN$AIRLINE), main="Categories of delay by Airline",
+  xlab="Airlines", col=c("red", "magenta","orange","yellow"), args.legend = list(x="topleft"),
+  legend = rownames(table(tableKNN$predictKNN, tableKNN$AIRLINE)), beside=TRUE) 
+#WANT TO CHANGE THE ORDER OF THE BARS TO: None, Low, Medium, High (maintaining the colors)
 
 
 ```
@@ -377,40 +404,76 @@ count_3 <- table(big_delay$AIRLINES)
 
 ```{r , echo=TRUE}
 
-modelNB <- naiveBayes(formula = formula(train_data[,12]~.), data = train_data)
-predictNB <- predict(modelNB, test_data)
+modelNB <- naiveBayes(formula = formula(train_data_y~.), data = train_data)
+predictNB <- predict(modelNB, test_data_x)
+
+#Confusion matrix
 table(predictNB, test_data_y)
 
-#Compute Naive Bayes error
-mean(test_data[,12] != predictNB)
+#Compute NB error
+mean(test_data_y != predictNB)
 
-#Compute Naive Bayes accuracy
-mean(test_data[,12] == predictNB)
+#Compute NB accuracy
+mean(test_data_y == predictNB)
+
+
+#Find the best airline using the histogram
+tableNB <- cbind(test_data_x, predictNB)
+
+#Barplot of the delays per Airline  
+barplot(table(tableNB$predictNB, tableNB$AIRLINE), main="Categories of delay by Airline",
+  xlab="Airlines", col=c("red", "magenta","orange","yellow"), args.legend = list(x="topleft"),
+  legend = rownames(table(tableNB$predictNB, tableNB$AIRLINE)), beside=TRUE)
 
 ```
 
-## Logistic regression   
+## Multinomial Logistic regression
+
+<!--We use Multinomial logistic regression since we have 4 categories: None, Low, Medium, High-->
    
 ```{r , echo=TRUE}
 
 #Fit model
-model_logreg <- glm(DELAY~. ,data = train_data, family = binomial, control = list(maxit = 100))
-summary(model_logreg)
-tidy(model_logreg, exponentiate = TRUE, conf.level = 0.95)
+modelMLR <- multinom(formula = formula(train_data_y~.), data= train_data)
+predictMLR <- predict(modelMLR, test_data_x)
 
-#From this we choose the significant variables using a significance level of 0.05
-model <- 
+#Confusion matrix
+table(predictMLR, test_data_y)
 
-probabilities <- model %>% predict(test_data, type = "response")
+#Compute MLR error
+mean(test_data_y != predictMLR)
 
-predicted_classes <- ifelse(probabilities > 0.5, "1", "0")
+#Compute MLR accuracy
+mean(test_data_y == predictMLR)
 
 
-confusion_matrix <- table(Predicted = predicted_classes, Reference = test_data$DELAY)
-confusion_matrix
+#Find the best airline using the histogram
+tableMLR <- cbind(test_data_x, predictMLR)
 
-#Calculate Accuracy
-mean(predicted_classes == test_data$DELAY)
+#Barplot of the delays per Airline  
+barplot(table(tableMLR$predictMLR, tableMLR$AIRLINE), main="Categories of delay by Airline",
+  xlab="Airlines", col=c("red", "magenta","orange","yellow"), args.legend = list(x="topleft"),
+  legend = rownames(table(tableMLR$predictMLR, tableMLR$AIRLINE)), beside=TRUE)
+
+
+#Fit model - I guess this isn´t correct because is designed for a binary problem!
+
+# model_logreg <- glm(DELAY~. ,data = train_data, family = binomial, control = list(maxit = 100))
+# summary(model_logreg)
+# tidy(model_logreg, exponentiate = TRUE, conf.level = 0.95)
+# 
+# #From this we choose the significant variables using a significance level of 0.05
+# 
+# probabilities <- model_logreg %>% predict(test_data, type = "response")
+# 
+# predicted_classes <- ifelse(probabilities > 0.5, "1", "0")
+# 
+# 
+# confusion_matrix <- table(Predicted = predicted_classes, Reference = test_data$DELAY)
+# confusion_matrix
+# 
+# #Calculate Accuracy
+# mean(predicted_classes == test_data$DELAY)
 
 ```
 
@@ -422,20 +485,27 @@ Since we have a multiclass classification problem, another possible choice of cl
 
 
 #Fit model
-model_lda <- multinom(DELAY~. ,data = train_data)
-summary(model_lda)
+modelLDA <-lda(formula = formula(train_data_y~.), data = train_data)
 
-probabilities <- model_lda %>% predict(test_data, type = "response")
+predictLDA <- predict(modelLDA, test_data_x)
 
-predicted_classes <- ifelse(probabilities > 0.5, "1", "0")
+#Confusion matrix
+table(predictLDA, test_data_y)
+
+#Compute LDA error
+mean(test_data_y != predictLDA)
+
+#Compute LDA accuracy
+mean(test_data_y == predictLDA)
 
 
-confusion_matrix <- table(Predicted = predicted_classes, Reference = test_data$DELAY)
-confusion_matrix
+#Find the best airline using the histogram
+tableLDA <- cbind(test_data_x, predictLDA)
 
-#Calculate Accuracy
-mean(predicted_classes == test_data$DELAY)
-
+#Barplot of the delays per Airline  
+barplot(table(tableLDA$predictLDA, tableLDA$AIRLINE), main="Categories of delay by Airline",
+  xlab="Airlines", col=c("red", "magenta","orange","yellow"), args.legend = list(x="topleft"),
+  legend = rownames(table(tableLDA$predictLDA, tableLDA$AIRLINE)), beside=TRUE)
 
 ```
 
@@ -443,11 +513,31 @@ mean(predicted_classes == test_data$DELAY)
 
 ## Decision Tree
 ```{r , echo=TRUE}
-library(tree)
-library(ISLR)
 
-library(rpart)
-tree <- rpart(DELAY ~., data = train_data, method = "class")
+modelTREE <- rpart(formula = formula(train_data_y~.), data = train_data, method = "class")
+predictTREE <- predict(modelTREE, test_data_x)
+
+
+#Confusion matrix
+table(predictTREE, test_data_y)
+
+#Compute the TREE error
+mean(test_data_y != predictTREE)
+
+#Compute TREE accuracy
+mean(test_data_y == predictTREE)
+
+
+#Find the best airline using the histogram
+tableTREE <- cbind(test_data_x, predictTREE)
+
+#Barplot of the delays per Airline  
+barplot(table(tableTREE$predictTREE, tableTREE$AIRLINE), main="Categories of delay by Airline",
+  xlab="Airlines", col=c("red", "magenta","orange","yellow"), args.legend = list(x="topleft"),
+  legend = rownames(table(tableTREE$predictTREE, tableTREE$AIRLINE)), beside=TRUE)
+
+
+
 
 ```
 
