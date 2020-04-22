@@ -65,7 +65,7 @@ library(rpart)
 
 The dataset has 5.819.079 observations of 31 variables. Since this dataset is not prepared for classification, we must do this preparation, taking into account what we want to achieve. The goal is to choose the best airline based on the delays of their flights, ignoring the cancelled and diverted ones. So, we will create a categorical response variable which represents the delay, and choose which variables we want to keep for the classifier.
 
-The variables are: `Year`, `Month`, `Day`, `Day of week`, `Airline`, `Flight number`, `Tail number`, `Origin airport`, `Destination airport`, `Schedule departure`, `Departure time`, `Departure delay`,  `Taxi out`, `Wheels off`, `Schedule time`, `Elapsed time`, `Air time`, `Distance`, `Wheels on`, `Taxi in`, `Scheduled arrival`, `Arrival time`, `Arrival delay`, `Diverted`, `Canceled`, `Cancellation reason`, `Air system delay`, `Security delay`, `Airtime delay`, `Late aircraft delay`, `Weather delay`.
+The variables are `Year`, `Month`, `Day`, `Day of week`, `Airline`, `Flight number`, `Tail number`, `Origin airport`, `Destination airport`, `Schedule departure`, `Departure time`, `Departure delay`,  `Taxi out`, `Wheels off`, `Schedule time`, `Elapsed time`, `Air time`, `Distance`, `Wheels on`, `Taxi in`, `Scheduled arrival`, `Arrival time`, `Arrival delay`, `Diverted`, `Canceled`, `Cancellation reason`, `Air system delay`, `Security delay`, `Airtime delay`, `Late aircraft delay`, `Weather delay`.
 <!--I think it might be unneccecary to list all of these??   
 
 AND we should add `variable name`, because then it is easier to see/read in the text as it gets another font. -->
@@ -126,7 +126,7 @@ handled_flights<- handled_flights[handled_flights$AIRLINE %in% airlines_list,]
 
 ## Response variable
 
-When taking a flight, the most common concern is to arrive on time, independently of the delay that may have occurred in the departure. So, we only take into consideration the Arrival delay to build the response variable. 
+When taking a flight, the most common concern is to arrive on time, independently of the delay that may have occurred in the departure. So, we only take into consideration the `Arrival delay` to build the response variable. 
 
 Since we want to build a classifier, we need to define the categories for the response variable. To do this, we analyzed the delayed flights mean and median. 
 (HISTOGRAM, BOXPLOT)
