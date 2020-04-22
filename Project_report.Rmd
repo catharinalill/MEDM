@@ -59,7 +59,8 @@ library(tidyverse)     #for barplots
 # library(StatMatch)     #for knngow function
 # library(dprep)        #for knngow function
 library(broom)
-library(rpart)
+library(rpart)        #for fitting tree
+library(rpart.plot)   #for plotting tree
 
 ```
 
@@ -150,23 +151,22 @@ mean(handled_flights$ARRIVAL_DELAY[handled_flights$ARRIVAL_DELAY>0])
 # No delay: <= 0 min, small delay: 1-15 min, medium delay: 15-33 min, big delay: >33 min       
 
 #Sample 100.000 of original data set 
-flights_small <- sample_n(handled_flights, 10000) #(THIS CHOICE SHOULD BE JUSTIFIED IN THE REPORT!)
+flights_small <- sample_n(handled_flights, 50000) #(THIS CHOICE SHOULD BE JUSTIFIED IN THE REPORT!)
 
 #Define delay as a FACTOR (category)
-# flights_small$DELAY <- as.factor( ifelse(flights_small$ARRIVAL_DELAY < 1,flights_small$DELAY <- "None",
-#               ifelse(flights_small$ARRIVAL_DELAY <16,flights_small$DELAY <- "Low", 
-#                      ifelse(flights_small$ARRIVAL_DELAY <34,flights_small$DELAY <- "Medium", flights_small$DELAY <- "High"))) )
+# flights_small$DELAY <- as.factor( ifelse(flights_small$ARRIVAL_DELAY < 1,flights_small$DELAY <- "None", ifelse(flights_small$ARRIVAL_DELAY <16,flights_small$DELAY <- "Low", ifelse(flights_small$ARRIVAL_DELAY <34,flights_small$DELAY <- "Medium", flights_small$DELAY <- "High"))) )
 
 #Define only 2 categories (None, Delayed) instead of 4
 flights_small$DELAY <- as.factor( ifelse(flights_small$ARRIVAL_DELAY < 1,flights_small$DELAY <- "None", flights_small$DELAY <- "Delayed"))
 
 
 #Barplot of the delays per Airline
-barplot(table(flights_small$DELAY, flights_small$AIRLINE), main="Categories of delay by Airline",
+counts <- table(flights_small$DELAY, flights_small$AIRLINE)
+barplot(counts, main="Categories of delay by Airline",
   xlab="Airlines", col=c("red", "magenta","orange","yellow"), args.legend = list(x="topleft"),
-  legend = rownames(table(flights_small$DELAY, flights_small$AIRLINE)), beside=TRUE)
+  legend = rownames(counts), beside=TRUE)
 #WANT TO CHANGE THE ORDER OF THE BARS TO: None, Low, Medium, High (maintaining the colors)
-
+#IF we end up only using 2 categories for the response variable we can only have 2 colours here!
 
 
 #Since our objective is to predict the delay of a flight, we might walk a mile in someone else's shoes, this time, in the shoes of someone who is about to take a flight.
@@ -327,8 +327,6 @@ test_data_y <- (flights_to_predict[test_index,])$DELAY
 
 co = rainbow_hcl(3)
 
-##We are supposed to use valid_Data here and not test_Data since w are dividing our data set into 3?? YES
-
 #Make model
 ks = 1:10 #Choose K from 1 to 10
 classification_errors = sapply(ks,function(k) {
@@ -363,7 +361,7 @@ classification_errors = sapply(ks,function(k) {
 #   mean(valid_data[,12] != fit)   #I think this is the accuracy, but it should be the classification variables
 # })
 
-######################################################################### NOT ABLE TO DOWNLOAD dprep EITHER
+####################################### NOT ABLE TO DOWNLOAD dprep EITHER
 
 #Choose the model that has the lowest classification error, use this K
 k_optimal = which.min(classification_errors)   #The best k is 7
@@ -424,6 +422,7 @@ tableNB <- cbind(test_data_x, predictNB)
 barplot(table(tableNB$predictNB, tableNB$AIRLINE), main="Categories of delay by Airline",
   xlab="Airlines", col=c("red", "magenta","orange","yellow"), args.legend = list(x="topleft"),
   legend = rownames(table(tableNB$predictNB, tableNB$AIRLINE)), beside=TRUE)
+#Remember to adjust number of colours to number of categories in the response variable
 
 ```
 
@@ -454,6 +453,7 @@ tableMLR <- cbind(test_data_x, predictMLR)
 barplot(table(tableMLR$predictMLR, tableMLR$AIRLINE), main="Categories of delay by Airline",
   xlab="Airlines", col=c("red", "magenta","orange","yellow"), args.legend = list(x="topleft"),
   legend = rownames(table(tableMLR$predictMLR, tableMLR$AIRLINE)), beside=TRUE)
+#Remember to adjust number of colours to number of categories in the response variable
 
 
 #Fit model - I guess this isn´t correct because is designed for a binary problem!
@@ -506,6 +506,7 @@ tableLDA <- cbind(test_data_x, predictLDA)
 barplot(table(tableLDA$predictLDA, tableLDA$AIRLINE), main="Categories of delay by Airline",
   xlab="Airlines", col=c("red", "magenta","orange","yellow"), args.legend = list(x="topleft"),
   legend = rownames(table(tableLDA$predictLDA, tableLDA$AIRLINE)), beside=TRUE)
+#Remember to adjust number of colours to number of categories in the response variable
 
 ```
 
@@ -514,8 +515,13 @@ barplot(table(tableLDA$predictLDA, tableLDA$AIRLINE), main="Categories of delay 
 ## Decision Tree
 ```{r , echo=TRUE}
 
-modelTREE <- rpart(formula = formula(train_data_y~.), data = train_data, method = "class")
-predictTREE <- predict(modelTREE, test_data_x)
+modelTREE <- rpart(formula = formula(train_data_y~.), data = train_data_x, method = "class")
+#Works with at least 50 000 obs if we use 2 categories for the response variable
+summary(modelTREE)
+rpart.plot(modelTREE)
+
+predictTREE <- predict(modelTREE, test_data_x, type = "class")
+
 
 
 #Confusion matrix
@@ -535,11 +541,13 @@ tableTREE <- cbind(test_data_x, predictTREE)
 barplot(table(tableTREE$predictTREE, tableTREE$AIRLINE), main="Categories of delay by Airline",
   xlab="Airlines", col=c("red", "magenta","orange","yellow"), args.legend = list(x="topleft"),
   legend = rownames(table(tableTREE$predictTREE, tableTREE$AIRLINE)), beside=TRUE)
+#Remember to adjust number of colours to number of categories in the response variable
 
 
 
 
 ```
+One advantage with the classification tree is that they are more flexible than linear methods. 
 
 # Learning/Limitations/Future work
 
