@@ -148,21 +148,18 @@ handled_flights_delayed <- handled_flights[handled_flights$ARRIVAL_DELAY>0,]
 handled_flights_notdelayed <- handled_flights[handled_flights$ARRIVAL_DELAY<=0,]
 
 
-flights_small <- sample_n(handled_flights, 100000)     
+flights_small <- sample_n(handled_flights, 20000)     
 
 #Check categories distribution
 
 
 
-# #Define delay as a FACTOR (category)
-# flights_small$DELAY <- as.factor( ifelse(flights_small$ARRIVAL_DELAY < 1,flights_small$DELAY <- "None", ifelse(flights_small$ARRIVAL_DELAY <16,flights_small$DELAY <- "Low", ifelse(flights_small$ARRIVAL_DELAY <34,flights_small$DELAY <- "Medium", flights_small$DELAY <- "High"))) )
-
-#Define only 2 categories (None, Delayed) instead of 4
+#Define only 2 categories fore response variable(None, Delayed) 
 flights_small$DELAY <- as.factor( ifelse(flights_small$ARRIVAL_DELAY < 1,flights_small$DELAY <- "None", flights_small$DELAY <- "Delayed"))
 
 
 #Check response variable categories distribution in flights_small
-counts_nodelay <- as.matrix(table(flights_small$DELAY=="None")) #The categories are not balanced - chose "manually" the observations so we get what desired, compromising the                                                                                                                                                      airline balance?
+counts_nodelay <- as.matrix(table(flights_small$DELAY=="None")) #The categories are not balanced - chose "manually" the observations so we get what desired, compromising the airline balance?
 counts_nodelay <- counts_nodelay/colSums(counts_nodelay)
 
 
@@ -170,7 +167,7 @@ counts_nodelay <- counts_nodelay/colSums(counts_nodelay)
 #Barplot of the delays per Airline
 counts <- table(flights_small$DELAY, flights_small$AIRLINE)
 barplot(counts, main="Categories of delay by Airline",
-  xlab="Airlines", col=c("red", "green"), args.legend = list(x="topleft"),
+  xlab="Airlines", col=c("red", "blue"), args.legend = list(x="topleft"),
   legend = rownames(counts), beside=TRUE)
 #WANT TO CHANGE THE ORDER OF THE BARS TO: None, Low, Medium, High (maintaining the colors)
 #IF we end up only using 2 categories for the response variable we can only have 2 colours here!
@@ -178,6 +175,7 @@ barplot(counts, main="Categories of delay by Airline",
 
 #Since our objective is to predict the delay of a flight, we might walk a mile in someone else's shoes, this time, in the shoes of someone who is about to take a flight.
 #So, we must give to the classifier, only the variables corresponding to subjects known a priori: scheduled departure, etc.
+
 
 
 #Maintain a priori columns and remove a posteriori columns
@@ -204,11 +202,10 @@ flights_to_predict$FLIGHT_NUMBER <- NULL
 flights_to_predict$TAIL_NUMBER <- NULL
 
 #Separate data into the 4 categories and report results
-
-nodelay <- flights_to_predict[flights_to_predict$DELAY=="None",]
-lowdelay <- flights_to_predict[flights_to_predict$DELAY=='Low',]
-mediumdelay <- flights_to_predict[flights_to_predict$DELAY=='Medium',]
-highdelay <- flights_to_predict[flights_to_predict$DELAY=='High',]
+#nodelay <- flights_to_predict[flights_to_predict$DELAY=="None",]
+#lowdelay <- flights_to_predict[flights_to_predict$DELAY=='Low',]
+#mediumdelay <- flights_to_predict[flights_to_predict$DELAY=='Medium',]
+#highdelay <- flights_to_predict[flights_to_predict$DELAY=='High',]
 
 # create_report(nodelay, output_file = 'nodelay.html')
 # create_report(lowdelay, output_file = 'lowdelay.html')
@@ -350,23 +347,30 @@ mean(test_data_y == predictNB)
 #Find the best airline using the histogram
 tableNB <- cbind(test_data_x, predictNB)
 
+
 #Barplot of the delays per Airline  
 barplot(table(tableNB$predictNB, tableNB$AIRLINE), main="Categories of delay by Airline",
-  xlab="Airlines", col=c("red", "green"), args.legend = list(x="topleft"),
+  xlab="Airlines", col=c("red", "blue"), args.legend = list(x="topleft"),
   legend = rownames(table(tableNB$predictNB, tableNB$AIRLINE)), beside=TRUE)
 
 #Get the percentages of delayed and not delayed for Airline
 countdelayNB <- as.matrix(table(tableNB$predictNB, tableNB$AIRLINE))
 countdelayNB <- sweep(countdelayNB, 2, colSums(countdelayNB), FUN = '/')
+
 colnames(countdelayNB) = c("AA","AS", "B6","DL","EV","F9","HA","MQ","NK","OO","UA","US","VX","WN") 
 rownames(countdelayNB) = c("Delayed", "None")
-#Get the most delayed Airline
-mostdelayedNB <- colnames(countdelayNB)[which.is.max(countdelayNB[1,])] #Airline which had the higher value of delay
-leastdelayedNB <- colnames(countdelayNB)[which.is.max(countdelayNB[2,])] #Airline which had the lower value of delay
+
+#Get the most and least delayed Airline
+mostdelayedNB <- colnames(countdelayNB)[which.is.max(countdelayNB[1,])] 
+mostdelayedNB      #Airline which had the higher value of delay
+
+leastdelayedNB <- colnames(countdelayNB)[which.is.max(countdelayNB[2,])] 
+leastdelayedNB      #Airline which had the lower value of delay
 
 #See sorted list of delayed and non delayed
 mostdelayed_sortNB <- sort(countdelayNB[1,], decreasing = TRUE) #Higher percentage means high delay
 leastdelayed_sortNB <- sort(countdelayNB[2,], decreasing = TRUE) #Higher percentage means low delay
+
 
 ```
 
@@ -375,7 +379,7 @@ leastdelayed_sortNB <- sort(countdelayNB[2,], decreasing = TRUE) #Higher percent
 ```{r , echo=TRUE}
 
 modelTREE <- rpart(formula = formula(train_data_y~.), data = train_data_x, method = "class")
-#Works with at least 50 000 obs if we use 2 categories for the response variable
+#Works with 100 000 obs if we use 2 categories for the response variable
 summary(modelTREE)
 rpart.plot(modelTREE)
 
@@ -398,15 +402,16 @@ tableTREE <- cbind(test_data_x, predictTREE)
 
 #Barplot of the delays per Airline  
 barplot(table(tableTREE$predictTREE, tableTREE$AIRLINE), main="Categories of delay by Airline",
-  xlab="Airlines", col=c("red", "green"), args.legend = list(x="topleft"),
+  xlab="Airlines", col=c("red", "blue"), args.legend = list(x="topleft"),
   legend = rownames(table(tableTREE$predictTREE, tableTREE$AIRLINE)), beside=TRUE)
-#Remember to adjust number of colours to number of categories in the response variable
+
 
 #Get the percentages of delayed and not delayed for Airline
 countdelayTREE <- as.matrix(table(tableTREE$predictTREE, tableTREE$AIRLINE))
 countdelayTREE <- sweep(countdelayTREE, 2, colSums(countdelayTREE), FUN = '/')
 colnames(countdelayTREE) = c("AA","AS", "B6","DL","EV","F9","HA","MQ","NK","OO","UA","US","VX","WN") 
 rownames(countdelayTREE) = c("Delayed", "None")
+
 #Get the most delayed Airline
 mostdelayedTREE <- colnames(countdelayTREE)[which.is.max(countdelayTREE[1,])] #Airline which had the higher value of delay
 leastdelayedTREE <- colnames(countdelayTREE)[which.is.max(countdelayTREE[2,])] #Airline which had the lower value of delay
@@ -415,22 +420,97 @@ leastdelayedTREE <- colnames(countdelayTREE)[which.is.max(countdelayTREE[2,])] #
 mostdelayed_sortTREE <- sort(countdelayTREE[1,], decreasing = TRUE) #Higher percentage means high delay
 leastdelayed_sortTREE <- sort(countdelayTREE[2,], decreasing = TRUE) #Higher percentage means low delay
 
-
+mostdelayedTREE
+leastdelayedTREE
 ```
 One advantage with the classification tree is that they are more flexible than linear methods. 
 
-## Logistic Regression - problems with the presence of categories for all variables in train and test sets
+## Support Vector Classifier
 ```{r, echo=TRUE}
-#Fit model
+library(e1071)
+modelSVM = svm(train_data_y~., data = train_data_x, kernel = "linear", cost = 10)
 
-#We use family = binomial since our response is of type factor
-
-modelLR <- glm(formula = formula(train_data_y~.), data = train_data, family = binomial, control = list(maxit = 100))
-
-predictLR <- predict(modelLR, test_data)
+predictSVM <- predict(modelSVM, test_data)
 
 #Confusion matrix
-table(predictLR, test_data_y)
+table(predictSVM, test_data_y)
+
+#Compute the TREE error
+mean(test_data_y != predictSVM)
+
+#Compute TREE accuracy
+mean(test_data_y == predictSVM) 
+  
+#Find the best airline using the histogram
+tableSVM <- cbind(test_data_x, predictSVM)
+
+
+#Barplot of the delays per Airline  
+barplot(table(tableSVM$predictSVM, tableSVM$AIRLINE), main="Categories of delay by Airline",
+  xlab="Airlines", col=c("red", "blue"), args.legend = list(x="topleft"),
+  legend = rownames(table(tableSVM$predictSVM, tableSVM$AIRLINE)), beside=TRUE)
+
+#Get the percentages of delayed and not delayed for Airline
+countdelaySVM <- as.matrix(table(tableSVM$predictSVM, tableSVM$AIRLINE))
+countdelaySVM <- sweep(countdelaySVM, 2, colSums(countdelaySVM), FUN = '/')
+
+colnames(countdelaySVM) = c("AA","AS", "B6","DL","EV","F9","HA","MQ","NK","OO","UA","US","VX","WN") 
+rownames(countdelaySVM) = c("Delayed", "None")
+
+#Get the most and least delayed Airline
+mostdelayedSVM <- colnames(countdelaySVM)[which.is.max(countdelaySVM[1,])] 
+mostdelayedSVM      #Airline which had the higher value of delay
+
+leastdelayedSVM <- colnames(countdelaySVM)[which.is.max(countdelaySVM[2,])] 
+leastdelayedSVM      #Airline which had the lower value of delay
+
+#See sorted list of delayed and non delayed
+mostdelayed_sortSVM <- sort(countdelaySVM[1,], decreasing = TRUE) #Higher percentage means high delay
+leastdelayed_sortSVM <- sort(countdelaySVM[2,], decreasing = TRUE) #Higher percentage means low delay
+
+mostdelayed_sortSVM
+leastdelayed_sortSVM
+```
+
+## Logistic Regression - problems with the presence of categories for all variables in train and test sets
+```{r, echo=TRUE}
+train_data_logreg = train_data[,]
+train_data_logreg$ORIGIN_AIRPORT <- NULL
+train_data_logreg$DESTINATION_AIRPORT <- NULL
+train_data_logreg$MONTH <- NULL
+train_data_logreg$DAY <- NULL
+train_data_logreg$DAY_OF_WEEK <- NULL
+
+test_data_logreg = test_data[,]
+test_data_logreg$ORIGIN_AIRPORT <- NULL
+test_data_logreg$DESTINATION_AIRPORT <- NULL
+test_data_logreg$MONTH <- NULL
+test_data_logreg$DAY <- NULL
+test_data_logreg$DAY_OF_WEEK <- NULL
+
+delay = vector(length = length(train_data_y))
+delay = ifelse(train_data_y == "None",0,1)
+#We use family = binomial since our response is of type factor
+
+#Fit model
+modelLR <- glm(formula = formula(delay~.), data = train_data, family = "binomial", control = list(maxit = 5000))
+
+coef(modelLR)
+modelLR
+
+predictLR <- predict(modelLR, test_data_logreg)
+predictLR
+
+# n = obs
+#round(n*0.15)
+
+DELAY <- vector(mode = "character",length = 1500)
+for (i in 1:1500) {
+DELAY[i] = ifelse(predictLR[i] < 30, "Delayed", "None")
+}
+
+#Confusion matrix
+table(DELAY, test_data_y)
 
 #Compute the TREE error
 mean(test_data_y != predictLR)
@@ -562,12 +642,16 @@ barplot(table(tableKNN$predictKNN, tableKNN$AIRLINE), main="Categories of delay 
 ```
 
 
-### Linear Discriminant Analysis - haven't tried with 2 categories and a smaller dataset, maybe we can try, but Naive Bayes and Decision Tree can run for 100.000 with no problem
+### Linear Discriminant Analysis
    
 Since we have a multiclass classification problem, another possible choice of classifier is to use the linear discriminant analysis. 
 ```{r , echo=TRUE}
 #Fit model
-modelLDA <-lda(formula = formula(train_data_y~.), data = train_data)
+train_data_lda = train_data[,]
+train_data_lda $ORIGIN_AIRPORT <- NULL
+train_data_lda $DESTINATION_AIRPORT <- NULL
+
+modelLDA <-lda(formula = formula(train_data_y~.), data = train_data_lda)
 
 predictLDA <- predict(modelLDA, test_data_x)
 
