@@ -34,9 +34,7 @@ flights = read.csv("flights.csv")
 
    
 # Introduction
-From a dataset of over five million flight observations from the U.S. Department of Transportation's (DOT) Bureau of Transportation Statistics, we want to use data mining techniques to select the best airline to fly on, although we only use the delay information.
 
-Our approach is to use several classifiers to predict the delay of flights and then, with that information, find the airline which has the least amount of delay.
 
 # Exploratory data analysis 
 ```{r , echo=FALSE}
@@ -61,15 +59,9 @@ library(tidyverse)     #for barplots
 library(broom)
 library(rpart)        #for fitting tree
 library(rpart.plot)   #for plotting tree
+library(leaflet)  #for map plots
 ```
 
-The dataset has 5.819.079 observations of 31 variables. Since this dataset is not prepared for classification, we must do this preparation, taking into account what we want to achieve. The goal is to choose the best airline based on the delays of their flights, ignoring the cancelled and diverted ones. So, we will create a categorical response variable which represents the delay, and choose which variables we want to keep for the classifier.
-
-The variables are `Year`, `Month`, `Day`, `Day of week`, `Airline`, `Flight number`, `Tail number`, `Origin airport`, `Destination airport`, `Schedule departure`, `Departure time`, `Departure delay`,  `Taxi out`, `Wheels off`, `Schedule time`, `Elapsed time`, `Air time`, `Distance`, `Wheels on`, `Taxi in`, `Scheduled arrival`, `Arrival time`, `Arrival delay`, `Diverted`, `Canceled`, `Cancellation reason`, `Air system delay`, `Security delay`, `Airtime delay`, `Late aircraft delay`, `Weather delay`.
-
-Since we are ignoring the cancelled and diverted flights we removed the variables: `Diverted`, `Cancelled`, `Cancellation reason`. We noticed that all the flights were from the year 2015. As a result, we eliminate the variable `Year`, as it has no interest to this problem.
-
-We noticed that some IATA codes for the origin and destination airports did not match any of the IATA codes from the provided list airports. In order to guarantee that the working data set had only valid IATA codes, we removed the observations that did not comply with this for the airports and airlines.
 
 ```{r , echo=TRUE}
 #Create another data set
@@ -123,35 +115,20 @@ handled_flights<- handled_flights[handled_flights$AIRLINE %in% airlines_list,]
 
 ## Response variable
 
-When taking a flight, the most common concern is to arrive on time, independently of the delay that may have occurred in the departure. So, we only take into consideration the `Arrival delay` to build the response variable. 
-
-Since we want to build a classifier, we need to define the categories for the response variable. To do this, we analyzed the delayed flights mean and median. 
-(HISTOGRAM, BOXPLOT)
-The results were $mean = 33.56$ and $median = 15$. From this, we defined the following categories of `DELAY`:
-* None: Arrival before the scheduled time or on time;
-* Low: Arrival with delay between 1 and 15 minutes;
-* Medium: Arrival with delay between 16 and 33 minutes;
-* High: Arrival with delay greater than 33 minutes.
-
-<!-- Becomes a point-list when knitting -->
-
-After defining the response variable we decided to only give to the classifier the variables that someone about to take a flight would know.
-
-
 ```{r , echo=TRUE}
 #To define the degree of delay, we consider the median and mean value, for example, considering only the values of ARRIVAL_DELAY > 0, which represent delays
 # median(handled_flights$ARRIVAL_DELAY[handled_flights$ARRIVAL_DELAY>0]) #mean = 33.56 median = 15  
 # mean(handled_flights$ARRIVAL_DELAY[handled_flights$ARRIVAL_DELAY>0])
 
-#Number of delayed and not delayed flights in original sample
-handled_flights_delayed <- handled_flights[handled_flights$ARRIVAL_DELAY>0,]
-handled_flights_notdelayed <- handled_flights[handled_flights$ARRIVAL_DELAY<=0,]
 
+flights_small <- sample_n(handled_flights, 100000)     
 
-flights_small <- sample_n(handled_flights, 20000)     
+#CONSIDER 4 CATEGORIES FOR RESPONSE
+#To define the degree of delay, we consider the median and mean value, for example, considering only the values of ARRIVAL_DELAY > 0, which represent delays
+# median(handled_flights$ARRIVAL_DELAY[handled_flights$ARRIVAL_DELAY>0]) #mean = 33.56 median = 15  
+# mean(handled_flights$ARRIVAL_DELAY[handled_flights$ARRIVAL_DELAY>0])
 
-#Check categories distribution
-
+# flights_small$DELAY <- as.factor( ifelse(flights_small$ARRIVAL_DELAY < 1,flights_small$DELAY <- "None", ifelse(flights_small$ARRIVAL_DELAY <16,flights_small$DELAY <- "Low", ifelse(flights_small$ARRIVAL_DELAY <34,flights_small$DELAY <- "Medium", flights_small$DELAY <- "High"))) )
 
 
 #Define only 2 categories fore response variable(None, Delayed) 
@@ -162,15 +139,6 @@ flights_small$DELAY <- as.factor( ifelse(flights_small$ARRIVAL_DELAY < 1,flights
 counts_nodelay <- as.matrix(table(flights_small$DELAY=="None")) #The categories are not balanced - chose "manually" the observations so we get what desired, compromising the airline balance?
 counts_nodelay <- counts_nodelay/colSums(counts_nodelay)
 
-
-
-#Barplot of the delays per Airline
-counts <- table(flights_small$DELAY, flights_small$AIRLINE)
-barplot(counts, main="Categories of delay by Airline",
-  xlab="Airlines", col=c("red", "blue"), args.legend = list(x="topleft"),
-  legend = rownames(counts), beside=TRUE)
-#WANT TO CHANGE THE ORDER OF THE BARS TO: None, Low, Medium, High (maintaining the colors)
-#IF we end up only using 2 categories for the response variable we can only have 2 colours here!
 
 
 #Since our objective is to predict the delay of a flight, we might walk a mile in someone else's shoes, this time, in the shoes of someone who is about to take a flight.
@@ -225,20 +193,74 @@ flights_to_predict$TAIL_NUMBER <- NULL
 # flights_to_predict$SCHEDULED_TIME <- NULL
 # flights_to_predict$AIRLINE <- NULL
 
+```
+
+## Exploratory data analysis Plots and Graphs and Histograms
+```{r , echo=TRUE}
+#FOR handled_flights (can be seen as the "original" data set, since it did not suffer undersampling)
+
+#Number of delayed and not delayed flights
+handled_flights$DELAY <- as.factor( ifelse(handled_flights$ARRIVAL_DELAY < 1,handled_flights$DELAY <- "None", handled_flights$DELAY <- "Delayed"))
+
+handled_flights_delayed <- dim(handled_flights[handled_flights$DELAY=='Delayed',])[1]
+handled_flights_notdelayed <- dim(handled_flights[handled_flights$DELAY=='None',])[1]
+
+#Histogram with Number of delayed and not delayed flights
+barplot(table(handled_flights$DELAY), main="Frequencies of response variable categories",
+  xlab="Categories", col=c("firebrick", "chartreuse3"), args.legend = list(x="topleft"),
+  legend = rownames(table(handled_flights$DELAY)), beside=TRUE)
+
+#Barplot of the delays per Month - original data set
+barplot(table(handled_flights$DELAY, handled_flights$MONTH), main="Categories of delay by Month - Original data set",
+  xlab="Airlines", col=c("firebrick", "chartreuse3"), args.legend = list(x="topleft"),
+  legend = rownames(table(handled_flights$DELAY, handled_flights$MONTH)), beside=TRUE)
+
+#Barplot of the delays per Day - original data set
+barplot(table(handled_flights$DELAY, handled_flights$DAY), main="Categories of delay by Day - Original data set",
+  xlab="Airlines", col=c("firebrick", "chartreuse3"), args.legend = list(x="topleft"),
+  legend = rownames(table(handled_flights$DELAY, handled_flights$DAY)), beside=TRUE)
+
+#Barplot of the delays per Day Of Week - original data set
+barplot(table(handled_flights$DELAY, handled_flights$DAY_OF_WEEK), main="Categories of delay by Day Of Week - Original data set",
+  xlab="Airlines", col=c("firebrick", "chartreuse3"), args.legend = list(x="topleft"),
+  legend = rownames(table(handled_flights$DELAY, handled_flights$DAY_OF_WEEK)), beside=TRUE)
+
+#Barplot of the delays per Airline - original data set
+barplot(table(handled_flights$DELAY, handled_flights$AIRLINE), main="Categories of delay by Airline - Original data set",
+  xlab="Airlines", col=c("firebrick", "chartreuse3"), args.legend = list(x="topleft"),
+  legend = rownames(table(handled_flights$DELAY, handled_flights$AIRLINE)), beside=TRUE)
+
+
+
+#FOR flights_to_predict
+
+#Barplot of the delays per Month - final data set
+barplot(table(flights_to_predict$DELAY, flights_to_predict$MONTH), main="Categories of delay by Month - Final data set",
+  xlab="Airlines", col=c("firebrick", "chartreuse3"), args.legend = list(x="topleft"),
+  legend = rownames(table(flights_to_predict$DELAY, flights_to_predict$MONTH)), beside=TRUE)
+
+#Barplot of the delays per Day - final data set
+barplot(table(flights_to_predict$DELAY, flights_to_predict$DAY), main="Categories of delay by Day - Final data set",
+  xlab="Airlines", col=c("firebrick", "chartreuse3"), args.legend = list(x="topleft"),
+  legend = rownames(table(flights_to_predict$DELAY, flights_to_predict$DAY)), beside=TRUE)
+
+#Barplot of the delays per Day Of Week - final data set
+barplot(table(flights_to_predict$DELAY, flights_to_predict$DAY_OF_WEEK), main="Categories of delay by Day Of Week - Final data set",
+  xlab="Airlines", col=c("firebrick", "chartreuse3"), args.legend = list(x="topleft"),
+  legend = rownames(table(flights_to_predict$DELAY, flights_to_predict$DAY_OF_WEEK)), beside=TRUE)
+
+#Barplot of the delays per Airline - final data set
+barplot(table(flights_to_predict$DELAY, flights_to_predict$AIRLINE), main="Categories of delay by Airline - Final data set",
+  xlab="Airlines", col=c("firebrick", "chartreuse3"), args.legend = list(x="topleft"),
+  legend = rownames(table(flights_to_predict$DELAY, flights_to_predict$AIRLINE)), beside=TRUE)
+
+
 
 
 ```
 
 
-
 ## Final data set
-
-After exploring and processing the data according to our goal, the classification problem will have 11 features, where 8 are categorical, these are `Month`, `Day`, `Day of week`, `Airline`, `Flight number`, `Tail number`, `Origin airport`, `Destination airport`, and 3 are continuous, which are `Schedule departure`, `Schedule time` and `Scheduled arrival`.
-
-We still want to explain or add the following:
-- size does matter (explained - possible plots to show distributions)
-- chart airlines, per airline - delays
-- maybe consider report charts (distances, distributions, qqplot)
 
 ```{r , echo=TRUE}
 #Find the percentages of each airline
@@ -273,9 +295,9 @@ percentdelayedbyairline2
 
 
 #Check correlation
-plot_correlation((flights_to_predict[, 1:11]), type = "continuous")
+plot_correlation((flights_to_predict[, 1:10]), type = "continuous")
 #Maybe comment in the report that this seems okay!
-# NOW THIS IS MAYBE NOT SO IMPORTANT SINCE ALMOST all our variables are categorical
+#WE CAN SHOW THIS PLOT JUST FOR THE 3 CONTINUOUS VARIABLES
 
 ```
 
@@ -344,13 +366,30 @@ mean(test_data_y != predictNB)
 mean(test_data_y == predictNB)
 
 
+#SENSITIVE MEASURES
+
+#Sensitivity: proportion of positive results out of the number of samples which were actually positive.
+senseNB <- sensitivity(predictNB, test_data_y, positive = "None")
+#Specificity: proportion of negative results out of the number of samples which were actually negative.
+specNB <- specificity(predictNB, test_data_y, negative = "Delayed")
+
+#Precision/Positive Predictive Value: percent of predicted positives that are actually positive.
+posPredNB <- posPredValue(predictNB, test_data_y, positive = "None")
+#Negative Predictive Value: percent of negative positives that are actually negative.
+negPredNB <- negPredValue(predictNB, test_data_y, negative = "Delayed")
+
+#NOTE: when there are no positive/negative results, Nan is returned. In this case, there are no negatives, which I do not understand
+
+
+#BACKWARD PROBLEM: FIND THE AIRLINE
+
 #Find the best airline using the histogram
 tableNB <- cbind(test_data_x, predictNB)
 
 
 #Barplot of the delays per Airline  
 barplot(table(tableNB$predictNB, tableNB$AIRLINE), main="Categories of delay by Airline",
-  xlab="Airlines", col=c("red", "blue"), args.legend = list(x="topleft"),
+  xlab="Airlines", col=c("red", "green"), args.legend = list(x="topleft"),
   legend = rownames(table(tableNB$predictNB, tableNB$AIRLINE)), beside=TRUE)
 
 #Get the percentages of delayed and not delayed for Airline
@@ -378,14 +417,14 @@ leastdelayed_sortNB <- sort(countdelayNB[2,], decreasing = TRUE) #Higher percent
 ## Decision Tree
 ```{r , echo=TRUE}
 
-modelTREE <- rpart(formula = formula(train_data_y~.), data = train_data_x, method = "class")
-#Works with 100 000 obs if we use 2 categories for the response variable
+modelTREE <- rpart(formula = formula(train_data_y~.), data = train_data_x, method = "class", parms = list(split ="information")) #instead of information, we may use "gini"
+#We may consider the splitting using Gini criterion or Information criterion: #https://en.wikipedia.org/wiki/Decision_tree_learning#Information_gain
+#Accuracy is the same, but the most delayed and least delayed airlines are different for each case
+
 summary(modelTREE)
 rpart.plot(modelTREE)
 
 predictTREE <- predict(modelTREE, test_data_x, type = "class")
-
-
 
 #Confusion matrix
 table(predictTREE, test_data_y)
@@ -396,6 +435,23 @@ mean(test_data_y != predictTREE)
 #Compute TREE accuracy
 mean(test_data_y == predictTREE)
 
+
+#SENSITIVE MEASURES
+
+#Sensitivity: proportion of positive results out of the number of samples which were actually positive.
+senseTREE <- sensitivity(predictTREE, test_data_y, positive = "None")
+#Specificity: proportion of negative results out of the number of samples which were actually negative.
+specTREE <- specificity(predictTREE, test_data_y, negative = "Delayed")
+
+#Precision/Positive Predictive Value: percent of predicted positives that are actually positive.
+posPredTREE <- posPredValue(predictTREE, test_data_y, positive = "None")
+#Negative Predictive Value: percent of negative positives that are actually negative.
+negPredTREE <- negPredValue(predictTREE, test_data_y, negative = "Delayed")
+
+#NOTE: when there are no positive/negative results, Nan is returned. In this case, there are no negatives, which I do not understand
+
+
+#BACKWARD PROBLEM: FIND THE AIRLINE
 
 #Find the best airline using the histogram
 tableTREE <- cbind(test_data_x, predictTREE)
