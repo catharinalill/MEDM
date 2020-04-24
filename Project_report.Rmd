@@ -59,12 +59,16 @@ library(tidyverse)     #for barplots
 library(broom)
 library(rpart)        #for fitting tree
 library(rpart.plot)   #for plotting tree
-library(leaflet)  #for map plots
+library(leaflet)      #for map plots
+library(randomForest) # for randomForest
+library(pROC)         #ROC curve
 ```
 
 
 ```{r , echo=TRUE}
 #Create another data set
+
+#Plot 
 
 ##Remove the observations for which the flight was cancelled            
 handled_flights <- flights[flights$CANCELLED<1,]  
@@ -125,13 +129,10 @@ flights_small <- sample_n(handled_flights, 100000)
 
 #CONSIDER 4 CATEGORIES FOR RESPONSE
 #To define the degree of delay, we consider the median and mean value, for example, considering only the values of ARRIVAL_DELAY > 0, which represent delays
-# median(handled_flights$ARRIVAL_DELAY[handled_flights$ARRIVAL_DELAY>0]) #mean = 33.56 median = 15  
-# mean(handled_flights$ARRIVAL_DELAY[handled_flights$ARRIVAL_DELAY>0])
+#median(handled_flights$ARRIVAL_DELAY[handled_flights$ARRIVAL_DELAY>0]) #mean = 33.56 median = 15  
+#mean(handled_flights$ARRIVAL_DELAY[handled_flights$ARRIVAL_DELAY>0])
 
-# flights_small$DELAY <- as.factor( ifelse(flights_small$ARRIVAL_DELAY < 1,flights_small$DELAY <- "None", ifelse(flights_small$ARRIVAL_DELAY <16,flights_small$DELAY <- "Low", ifelse(flights_small$ARRIVAL_DELAY <34,flights_small$DELAY <- "Medium", flights_small$DELAY <- "High"))) )
-
-
-#Define only 2 categories fore response variable(None, Delayed) 
+#Define 2 categories for the response variable(None, Delayed) 
 flights_small$DELAY <- as.factor( ifelse(flights_small$ARRIVAL_DELAY < 1,flights_small$DELAY <- "None", flights_small$DELAY <- "Delayed"))
 
 
@@ -139,12 +140,15 @@ flights_small$DELAY <- as.factor( ifelse(flights_small$ARRIVAL_DELAY < 1,flights
 counts_nodelay <- as.matrix(table(flights_small$DELAY=="None")) #The categories are not balanced - chose "manually" the observations so we get what desired, compromising the airline balance?
 counts_nodelay <- counts_nodelay/colSums(counts_nodelay)
 
+#Why we chose to remove Flight number and tail number
+#plot_bar(flights_small)
+
 
 
 #Since our objective is to predict the delay of a flight, we might walk a mile in someone else's shoes, this time, in the shoes of someone who is about to take a flight.
 #So, we must give to the classifier, only the variables corresponding to subjects known a priori: scheduled departure, etc.
 
-
+#plot_missing(flights_small)
 
 #Maintain a priori columns and remove a posteriori columns
 flights_to_predict <- flights_small[,]
@@ -236,17 +240,17 @@ barplot(table(handled_flights$DELAY, handled_flights$AIRLINE), main="Categories 
 
 #Barplot of the delays per Month - final data set
 barplot(table(flights_to_predict$DELAY, flights_to_predict$MONTH), main="Categories of delay by Month - Final data set",
-  xlab="Airlines", col=c("firebrick", "chartreuse3"), args.legend = list(x="topleft"),
+  xlab="Month", col=c("firebrick", "chartreuse3"), args.legend = list(x="topleft"),
   legend = rownames(table(flights_to_predict$DELAY, flights_to_predict$MONTH)), beside=TRUE)
 
 #Barplot of the delays per Day - final data set
 barplot(table(flights_to_predict$DELAY, flights_to_predict$DAY), main="Categories of delay by Day - Final data set",
-  xlab="Airlines", col=c("firebrick", "chartreuse3"), args.legend = list(x="topleft"),
+  xlab="Day", col=c("firebrick", "chartreuse3"), args.legend = list(x="topleft"),
   legend = rownames(table(flights_to_predict$DELAY, flights_to_predict$DAY)), beside=TRUE)
 
 #Barplot of the delays per Day Of Week - final data set
 barplot(table(flights_to_predict$DELAY, flights_to_predict$DAY_OF_WEEK), main="Categories of delay by Day Of Week - Final data set",
-  xlab="Airlines", col=c("firebrick", "chartreuse3"), args.legend = list(x="topleft"),
+  xlab="Day of Week", col=c("firebrick", "chartreuse3"), args.legend = list(x="topleft"),
   legend = rownames(table(flights_to_predict$DELAY, flights_to_predict$DAY_OF_WEEK)), beside=TRUE)
 
 #Barplot of the delays per Airline - final data set
@@ -295,9 +299,11 @@ percentdelayedbyairline2
 
 
 #Check correlation
-plot_correlation((flights_to_predict[, 1:10]), type = "continuous")
+#plot_correlation((flights_to_predict[, 1:10]), type = "continuous")
 #Maybe comment in the report that this seems okay!
 #WE CAN SHOW THIS PLOT JUST FOR THE 3 CONTINUOUS VARIABLES
+
+
 
 ```
 
@@ -373,13 +379,22 @@ senseNB <- sensitivity(predictNB, test_data_y, positive = "None")
 #Specificity: proportion of negative results out of the number of samples which were actually negative.
 specNB <- specificity(predictNB, test_data_y, negative = "Delayed")
 
+senseNB
+specNB
+
 #Precision/Positive Predictive Value: percent of predicted positives that are actually positive.
 posPredNB <- posPredValue(predictNB, test_data_y, positive = "None")
 #Negative Predictive Value: percent of negative positives that are actually negative.
 negPredNB <- negPredValue(predictNB, test_data_y, negative = "Delayed")
 
+posPredNB
+negPredNB
+
 #NOTE: when there are no positive/negative results, Nan is returned. In this case, there are no negatives, which I do not understand
 
+# ROC-CURVES
+roc(test_data_y, as.numeric(predictNB), legacy.axes = TRUE, auc = TRUE, plot = TRUE)
+#Think the curve looks a bit wierd, and the axis for the specificity is from -0.5 to 1.5 which is wierd
 
 #BACKWARD PROBLEM: FIND THE AIRLINE
 
@@ -389,7 +404,7 @@ tableNB <- cbind(test_data_x, predictNB)
 
 #Barplot of the delays per Airline  
 barplot(table(tableNB$predictNB, tableNB$AIRLINE), main="Categories of delay by Airline",
-  xlab="Airlines", col=c("red", "green"), args.legend = list(x="topleft"),
+  xlab="Airlines", col=c("firebrick", "chartreuse3"), args.legend = list(x="topleft"),
   legend = rownames(table(tableNB$predictNB, tableNB$AIRLINE)), beside=TRUE)
 
 #Get the percentages of delayed and not delayed for Airline
@@ -410,21 +425,23 @@ leastdelayedNB      #Airline which had the lower value of delay
 mostdelayed_sortNB <- sort(countdelayNB[1,], decreasing = TRUE) #Higher percentage means high delay
 leastdelayed_sortNB <- sort(countdelayNB[2,], decreasing = TRUE) #Higher percentage means low delay
 
-
+mostdelayed_sortNB
 ```
 
 
 ## Decision Tree
 ```{r , echo=TRUE}
-
-modelTREE <- rpart(formula = formula(train_data_y~.), data = train_data_x, method = "class", parms = list(split ="information")) #instead of information, we may use "gini"
+# MODEL FITTING
+modelTREE <- rpart(formula = formula(train_data_y~.), data = train_data_x, method = "class", parms = list(split ="gini")) #instead of information, we may use "gini"
 #We may consider the splitting using Gini criterion or Information criterion: #https://en.wikipedia.org/wiki/Decision_tree_learning#Information_gain
 #Accuracy is the same, but the most delayed and least delayed airlines are different for each case
+
+#SOMETHING IS NOT WORKING HERE! 
 
 summary(modelTREE)
 rpart.plot(modelTREE)
 
-predictTREE <- predict(modelTREE, test_data_x, type = "class")
+predictTREE <- predict(modelTREE, test_data, type = "class")
 
 #Confusion matrix
 table(predictTREE, test_data_y)
@@ -435,6 +452,13 @@ mean(test_data_y != predictTREE)
 #Compute TREE accuracy
 mean(test_data_y == predictTREE)
 
+#####################################################################
+#Maybe try pruning (looked at her example from class today)
+printcp(modelTREE)
+bestcp <- modelTREE$cptable[which.min(modelTREE$cptable[,"xerror"]), "CP"]
+plotcp(modelTREE)
+
+#####################################################################
 
 #SENSITIVE MEASURES
 
@@ -442,6 +466,8 @@ mean(test_data_y == predictTREE)
 senseTREE <- sensitivity(predictTREE, test_data_y, positive = "None")
 #Specificity: proportion of negative results out of the number of samples which were actually negative.
 specTREE <- specificity(predictTREE, test_data_y, negative = "Delayed")
+senseTREE
+specTREE
 
 #Precision/Positive Predictive Value: percent of predicted positives that are actually positive.
 posPredTREE <- posPredValue(predictTREE, test_data_y, positive = "None")
@@ -449,6 +475,16 @@ posPredTREE <- posPredValue(predictTREE, test_data_y, positive = "None")
 negPredTREE <- negPredValue(predictTREE, test_data_y, negative = "Delayed")
 
 #NOTE: when there are no positive/negative results, Nan is returned. In this case, there are no negatives, which I do not understand
+
+
+
+#ROC curve
+
+rocTREE = roc(test_data_y, as.numeric(predictTREE), legacy.axes = TRUE, auc = TRUE, plot = TRUE)
+rocTREE
+#DON´T KNOW WHY THIS WON´T WORK...
+#THE AUC = 0.5 as well, so not better as by chance which is not good...
+
 
 
 #BACKWARD PROBLEM: FIND THE AIRLINE
@@ -480,6 +516,72 @@ mostdelayedTREE
 leastdelayedTREE
 ```
 One advantage with the classification tree is that they are more flexible than linear methods. 
+
+## Random Forest
+
+```{r, echo=TRUE}
+
+train_data_x_rf = train_data_x[,]
+train_data_x_rf$ORIGIN_AIRPORT <- NULL
+train_data_x_rf$DESTINATION_AIRPORT <- NULL
+train_data_x_rf$DAY<- NULL
+
+test_data_rf = test_data[,]
+test_data_rf$ORIGIN_AIRPORT <- NULL
+test_data_rf$DESTINATION_AIRPORT <- NULL
+test_data_rf$DAY <- NULL
+
+modelRF = randomForest(train_data_y~., data = train_data_x_rf, mtry = 3, importance = TRUE)
+#Cannot handle variables with more than 53 categories... so we had to try to reduce the data set just to see if this will work
+
+
+predictRF <- predict(modelRF, test_data_rf)
+
+#varImpPlot(modelRF)
+
+#Confusion matrix
+table(predictRF, test_data_y)
+
+#Compute the TREE error
+mean(test_data_y != predictRF)
+
+#Compute TREE accuracy
+mean(test_data_y == predictRF) 
+
+#rocTREE = roc(test_data_y, as.numeric(predictTREE), legacy.axes = TRUE, auc = TRUE, plot = TRUE)
+
+
+#BACKWARD PROBLEM: FIND THE AIRLINE
+  
+#Find the best airline using the histogram
+tableRF <- cbind(test_data_rf, predictRF)
+
+#Barplot of the delays per Airline  
+barplot(table(tableRF$predictRF, tableRF$AIRLINE), main="Categories of delay by Airline",
+  xlab="Airlines", col=c("red", "blue"), args.legend = list(x="topleft"),
+  legend = rownames(table(tableRF$predictRF, tableRF$AIRLINE)), beside=TRUE)
+
+#Get the percentages of delayed and not delayed for Airline
+countdelayRF <- as.matrix(table(tableRF$predictRF, tableRF$AIRLINE))
+countdelayRF <- sweep(countdelayRF, 2, colSums(countdelayRF), FUN = '/')
+
+colnames(countdelayRF) = c("AA","AS", "B6","DL","EV","F9","HA","MQ","NK","OO","UA","US","VX","WN") 
+rownames(countdelayRF) = c("Delayed", "None")
+
+#Get the most and least delayed Airline
+mostdelayedRF <- colnames(countdelayRF)[which.is.max(countdelayRF[1,])] 
+mostdelayedRF      #Airline which had the higher value of delay
+
+leastdelayedRF <- colnames(countdelayRF)[which.is.max(countdelayRF[2,])] 
+leastdelayedRF      #Airline which had the lower value of delay
+
+#See sorted list of delayed and non delayed
+mostdelayed_sortRF <- sort(countdelayRF[1,], decreasing = TRUE) #Higher percentage means high delay
+leastdelayed_sortRF <- sort(countdelayRF[2,], decreasing = TRUE) #Higher percentage means low delay
+
+mostdelayed_sortRF
+leastdelayed_sortRF
+```
 
 ## Support Vector Classifier
 ```{r, echo=TRUE}
