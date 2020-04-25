@@ -67,38 +67,102 @@ library(pROC)         #ROC curve
 
 ```{r , echo=TRUE}
 
-##Remove the observations for which the flight was cancelled            
-handled_flights <- flights[flights$CANCELLED<1,]  
-#Remove columns YEAR (2015 for all observations), CANCELLATION_REASON (since we are now dealing with flights that were not canceled), CANCELLED (will have 0's since these are the flights that were not cancelled) and DIVERTED (will have 1's for observations where ARRIVAL DELAY = NA,so we may remove this column)
-handled_flights$YEAR <- NULL
-handled_flights$CANCELLATION_REASON <- NULL
-handled_flights$CANCELLED <- NULL
-handled_flights$DIVERTED <- NULL
+
+handled_flights <- flights[,]  
 
 
 #Erase the observations for which there was no information concerning the arrival delay
 handled_flights<- handled_flights[is.na(handled_flights$ARRIVAL_DELAY)==FALSE,]
+#As a result, we end up with no cancelled flights, since the ones that arrived (so the arrival delay will have some value) are the ones that were not cancelled
 
 #Change handled_flights dataframe data types to the correct ones
 #Discrete variables must be considered as FACTORs
+handled_flights$YEAR <- as.factor(handled_flights$YEAR)
 handled_flights$MONTH <- as.factor(handled_flights$MONTH)
 handled_flights$DAY <- as.factor(handled_flights$DAY)
 handled_flights$DAY_OF_WEEK <- as.factor(handled_flights$DAY_OF_WEEK)
 handled_flights$FLIGHT_NUMBER <- as.factor(handled_flights$FLIGHT_NUMBER)
+
 handled_flights$SCHEDULED_DEPARTURE <- as.numeric(handled_flights$SCHEDULED_DEPARTURE)
+mean(handled_flights$SCHEDULED_DEPARTURE)
+median(handled_flights$SCHEDULED_DEPARTURE)
+sd(handled_flights$SCHEDULED_DEPARTURE)
+
 handled_flights$DEPARTURE_TIME <- as.numeric(handled_flights$DEPARTURE_TIME)
+mean(handled_flights$DEPARTURE_TIME)
+median(handled_flights$DEPARTURE_TIME)
+sd(handled_flights$DEPARTURE_TIME)
+
 handled_flights$DEPARTURE_DELAY <- as.numeric(handled_flights$DEPARTURE_DELAY)
+mean(handled_flights$DEPARTURE_DELAY)
+median(handled_flights$DEPARTURE_DELAY)
+sd(handled_flights$DEPARTURE_DELAY)
+
 handled_flights$TAXI_OUT <- as.numeric(handled_flights$TAXI_OUT)
+mean(handled_flights$TAXI_OUT)
+median(handled_flights$TAXI_OUT)
+sd(handled_flights$TAXI_OUT)
+
 handled_flights$WHEELS_OFF <- as.numeric(handled_flights$WHEELS_OFF)
+mean(handled_flights$WHEELS_OFF)
+median(handled_flights$WHEELS_OFF)
+sd(handled_flights$WHEELS_OFF)
+
 handled_flights$SCHEDULED_TIME <- as.numeric(handled_flights$SCHEDULED_TIME)
+mean(handled_flights$SCHEDULED_TIME)
+median(handled_flights$SCHEDULED_TIME)
+sd(handled_flights$SCHEDULED_TIME)
+
 handled_flights$ELAPSED_TIME <- as.numeric(handled_flights$ELAPSED_TIME)
+mean(handled_flights$ELAPSED_TIME)
+median(handled_flights$ELAPSED_TIME)
+sd(handled_flights$ELAPSED_TIME)
+
 handled_flights$AIR_TIME <- as.numeric(handled_flights$AIR_TIME)
+mean(handled_flights$AIR_TIME)
+median(handled_flights$AIR_TIME)
+sd(handled_flights$AIR_TIME)
+
 handled_flights$DISTANCE <- as.numeric(handled_flights$DISTANCE)
+mean(handled_flights$DISTANCE)
+median(handled_flights$DISTANCE)
+sd(handled_flights$DISTANCE)
+
 handled_flights$WHEELS_ON <- as.numeric(handled_flights$WHEELS_ON)
+mean(handled_flights$WHEELS_ON)
+median(handled_flights$WHEELS_ON)
+sd(handled_flights$WHEELS_ON)
+
 handled_flights$TAXI_IN <- as.numeric(handled_flights$TAXI_IN)
+mean(handled_flights$TAXI_IN)
+median(handled_flights$TAXI_IN)
+sd(handled_flights$TAXI_IN)
+
 handled_flights$SCHEDULED_ARRIVAL <- as.numeric(handled_flights$SCHEDULED_ARRIVAL)
+mean(handled_flights$SCHEDULED_ARRIVAL)
+median(handled_flights$SCHEDULED_ARRIVAL)
+sd(handled_flights$SCHEDULED_ARRIVAL)
+
 handled_flights$ARRIVAL_TIME <- as.numeric(handled_flights$ARRIVAL_TIME)
+mean(handled_flights$ARRIVAL_TIME)
+median(handled_flights$ARRIVAL_TIME)
+sd(handled_flights$ARRIVAL_TIME)
+
 handled_flights$ARRIVAL_DELAY <- as.numeric(handled_flights$ARRIVAL_DELAY)
+mean(handled_flights$ARRIVAL_DELAY)
+median(handled_flights$ARRIVAL_DELAY)
+sd(handled_flights$ARRIVAL_DELAY)
+
+handled_flights$DIVERTED <- as.factor(handled_flights$DIVERTED)
+handled_flights$CANCELLED <- as.factor(handled_flights$CANCELLED)
+
+
+
+#Remove columns YEAR (2015 for all observations), CANCELLATION_REASON (since we are now dealing with flights that were not canceled), CANCELLED (will have 0's since these are the flights that were not cancelled) and DIVERTED (will have 1's for observations where ARRIVAL DELAY = NA,so we may remove this column)
+handled_flights$YEAR <- NULL
+handled_flights$DIVERTED <- NULL
+handled_flights$CANCELLED <- NULL
+handled_flights$CANCELLATION_REASON <- NULL
 
 #Create list of existent airports
 airports_list <- airports$IATA_CODE
