@@ -62,11 +62,83 @@ library(rpart.plot)   #for plotting tree
 library(leaflet)      #for map plots
 library(randomForest) # for randomForest
 library(pROC)         #ROC curve
+library(plotrix)
 ```
 
+```{r , echo=TRUE}
+#Plots for the original data set
+
+  ##Pie chart for diverted/cancelled/none
+  count_diverted <- sum(flights$DIVERTED==1)
+  count_cancelled <- sum(flights$CANCELLED==1)
+  count_scheduled <- sum(flights$DIVERTED==0 & flights$CANCELLED==0)
+  
+  slices <- c(count_diverted, count_cancelled, count_scheduled) 
+  lbls <- c("Diverted", "Cancelled", "Scheduled")
+  pct <- round(slices/sum(slices)*100, 2)
+  lbls <- paste(lbls, pct) # add percents to labels 
+  lbls <- paste(lbls,"%",sep="") # add % to labels 
+  pie(slices,labels = lbls, col=c("chocolate1","brown4","darkolivegreen2"),   #Not very good - use Carolina's chart
+     main="Percentage of flight types") 
+  
+  #Erase rows for cancelled or diverted flights
+  flights_plot <- flights[,]
+  flights_plot <- flights_plot[flights_plot$DIVERTED==0,]
+  flights_plot <- flights_plot[flights_plot$CANCELLED==0,]
+  
+  #Create list of existent airports
+  airports_list <- airports$IATA_CODE
+  
+  #Create list of existent airlines
+  airlines_list <- airlines$IATA_CODE
+  
+  #Show airports with invalid IATA codes
+  ghost_airports <- flights_plot[!(flights_plot$ORIGIN_AIRPORT %in% airports_list),]
+  ghost_airports<- droplevels(ghost_airports,exclude = ghost_airports$ORIGIN_AIRPORT %in% airports_list)
+  table(ghost_airports$MONTH) #all the flights are from october
+  
+  barplot(table(ghost_airports$ORIGIN_AIRPORT), main="Frequencies of accomplished ghost flights by Origin Airport",
+  xlab="Origin Airport", col=c("chartreuse3"), beside=TRUE)
+  
+    #Erase observations for origin_airports, destination_airports which are not contained in the data frame airports and airlines which are     not contained in the data frame airlines
+  flights_plot<- flights_plot[flights_plot$ORIGIN_AIRPORT %in% airports_list,]
+  flights_plot<- flights_plot[flights_plot$DESTINATION_AIRPORT %in% airports_list,]
+  flights_plot<- flights_plot[flights_plot$AIRLINE %in% airlines_list,]
+  
+  flights_plot<- droplevels(flights_plot,exclude = !(flights_plot$ORIGIN_AIRPORT %in% airports_list))
+  flights_plot<- droplevels(flights_plot,exclude = !(flights_plot$DESTINATION_AIRPORT %in% airports_list))
+  flights_plot<- droplevels(flights_plot,exclude = !(flights_plot$AIRLINE %in% airlines_list))
+  
+  
+  ##Barplot of flights per month, day, day of week, airline, origin/destination airport
+    #Month
+    barplot(table(flights_plot$MONTH), main="Frequencies of accomplished flights by Month",
+  xlab="Month", col=c("chartreuse3"), beside=TRUE)
+    #Day
+    barplot(table(flights_plot$DAY), main="Frequencies of accomplished flights by Day",
+  xlab="Day", col=c("chartreuse3"), beside=TRUE)
+    #Day of week
+    barplot(table(flights_plot$DAY_OF_WEEK), main="Frequencies of accomplished flights by Day Of Week",
+  xlab="Day of week", col=c("chartreuse3"), beside=TRUE)
+    #Airline
+    barplot(table(flights_plot$AIRLINE), main="Frequencies of accomplished flights by Airline",
+  xlab="Airline", col=c("chartreuse3"), beside=TRUE)
+    
+    #Origin airport
+     barplot(table(flights_plot$ORIGIN_AIRPORT), main="Frequencies of accomplished flights by Origin Airport",
+  xlab="Origin Airport", col=c("chartreuse3"), beside=TRUE)
+  
+    #Destination airport
+     barplot(table(flights_plot$DESTINATION_AIRPORT), main="Frequencies of accomplished flights by Destination Airport",
+  xlab="Destination Airport", col=c("chartreuse3"), beside=TRUE)
+  
+  
+  
+  
+
+```
 
 ```{r , echo=TRUE}
-
 
 handled_flights <- flights[,]  
 
@@ -174,6 +246,10 @@ airlines_list <- airlines$IATA_CODE
 handled_flights<- handled_flights[handled_flights$ORIGIN_AIRPORT %in% airports_list,]
 handled_flights<- handled_flights[handled_flights$DESTINATION_AIRPORT %in% airports_list,]
 handled_flights<- handled_flights[handled_flights$AIRLINE %in% airlines_list,]
+
+handled_flights<- droplevels(handled_flights,exclude = !(handled_flights$ORIGIN_AIRPORT %in% airports_list))
+handled_flights<- droplevels(handled_flights,exclude = !(handled_flights$DESTINATION_AIRPORT %in% airports_list))
+handled_flights<- droplevels(handled_flights,exclude = !(handled_flights$AIRLINE %in% airlines_list))
 
 ```
 
@@ -452,18 +528,24 @@ predictNBLap <- predict(modelNBLap, valid_data_x)
 
 #Confusion matrix
 table(predictNBLap, valid_data_y)
-#             valid_data_y
+#             valid_data_y               
 # predictNBLap Delayed None
 #      Delayed     414  473
 #      None       1259 2354
 
+#  -->
+#             valid_data_y
+# predictNBLap Delayed None
+#      Delayed     438  505
+#      None       1235 2322
+
 #Compute NB error
-mean(valid_data_y != predictNBLap) #0.3848889
+mean(valid_data_y != predictNBLap) #0.3848889   -> 0.3866667
 
 #Compute NB accuracy
-mean(valid_data_y == predictNBLap) #0.6151111
+mean(valid_data_y == predictNBLap) #0.6151111  -> 0.6133333
 
-posPredNBLap <- posPredValue(predictNBLap, valid_data_y, positive = "None") #0.6515361
+posPredNBLap <- posPredValue(predictNBLap, valid_data_y, positive = "None") #0.6515361  -> 0.6527973
 
 
 #SO, WE USE LAPLACE
@@ -477,11 +559,17 @@ table(predictNB, test_data_y)
 #   Delayed     417  444
 #   None       1313 2326
 
+# -->
+#          test_data_y
+# predictNB Delayed None
+#   Delayed     448  470
+#   None       1282 2300
+
 #Compute NB error
-mean(test_data_y != predictNB) #0.3904444
+mean(test_data_y != predictNB) #0.3904444  -> 0.3893333
 
 #Compute NB accuracy
-mean(test_data_y == predictNB) #0.6095556
+mean(test_data_y == predictNB) #0.6095556 -> 0.6106667
 
 
 #SENSITIVE MEASURES
@@ -491,16 +579,16 @@ senseNB <- sensitivity(predictNB, test_data_y, positive = "None")
 #Specificity: proportion of negative results out of the number of samples which were actually negative.
 specNB <- specificity(predictNB, test_data_y, negative = "Delayed")
 
-senseNB
-specNB
+senseNB #0.8303249
+specNB #0.2589595
 
 #Precision/Positive Predictive Value: percent of predicted positives that are actually positive.
 posPredNB <- posPredValue(predictNB, test_data_y, positive = "None")
 #Negative Predictive Value: percent of negative positives that are actually negative.
 negPredNB <- negPredValue(predictNB, test_data_y, negative = "Delayed")
 
-posPredNB
-negPredNB
+posPredNB #0.6420994
+negPredNB #0.4880174
 
 
 
@@ -555,7 +643,7 @@ modelTREEinf <- rpart(formula = formula(train_data_y~.), data = train_data_x, me
 #Compute posPredValue using gini, for the validation set
 predictTREEgini <- predict(modelTREEgini, valid_data, type = "class")
 
-posPredTREEgini <- posPredValue(predictTREEgini, valid_data_y, positive = "None")      #Gini is better
+posPredTREEgini <- posPredValue(predictTREEgini, valid_data_y, positive = "None")     
 accTREEgini <- mean(valid_data_y == predictTREEgini)
 table(predictTREEgini, valid_data_y)
 
@@ -576,11 +664,16 @@ predictTREE <- predict(modelTREEgini, test_data, type = "class")
 #Confusion matrix
 table(predictTREE, test_data_y)
 
+#            test_data_y
+# predictTREE Delayed None
+#     Delayed     221  243
+#     None       1509 2527
+
 #Compute the TREE error
-mean(test_data_y != predictTREE)
+mean(test_data_y != predictTREE) #0.3893333
 
 #Compute TREE accuracy
-mean(test_data_y == predictTREE)
+mean(test_data_y == predictTREE) #0.6106667
 
 #####################################################################
 #Maybe try pruning (looked at her example from class today)
@@ -593,6 +686,11 @@ modelTREEgini_pruned <- prune(modelTREEgini, cp = bestcp)
 predictTREEgini_pruned <- predict(modelTREEgini_pruned, test_data, type = "class")
 table(predictTREEgini_pruned, test_data_y)
 
+#                       test_data_y
+# predictTREEgini_pruned Delayed None
+#                Delayed       0    0
+#                None       1730 2770
+
 #####################################################################
 
 #SENSITIVE MEASURES
@@ -602,16 +700,16 @@ senseTREE <- sensitivity(predictTREE, test_data_y, positive = "None")
 #Specificity: proportion of negative results out of the number of samples which were actually negative.
 specTREE <- specificity(predictTREE, test_data_y, negative = "Delayed")
 
-senseTREE
-specTREE
+senseTREE #0.9122744
+specTREE #0.1277457
 
 #Precision/Positive Predictive Value: percent of predicted positives that are actually positive.
 posPredTREE <- posPredValue(predictTREE, test_data_y, positive = "None")
 #Negative Predictive Value: percent of negative positives that are actually negative.
 negPredTREE <- negPredValue(predictTREE, test_data_y, negative = "Delayed")
 
-posPredTREE
-negPredTREE
+posPredTREE #0.626115
+negPredTREE #0.4762931
 
 #NOTE: when there are no positive/negative results, Nan is returned. In this case, there are no negatives, which I do not understand
 
