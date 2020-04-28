@@ -7,36 +7,15 @@ output: html_document
         
 ---
 
-<!-- Press Knit, to make a html-file of the code below. This we can use while working with the report to see how it is. Because the dataset flights in pretty large it takes some time to knit the file.. 
-We don´t have to compilate the code to a pdf before we are delivering it, but if you want to you might have to download a program, maybe Latex or something, I am not quite sure. I already have it so I can compilate it to a pdf when we are done with it. 
-But remember if you compilate it to a pdf-file some lines can be too long and get cutted. Then you have to go in the code and adjust it. If you need a linespace you need to have 3 space in the line above. -->
-
-<!-- In gitkranken: 
-When you have edited the code, save it usual. Then open gitkranken, and you will see a blue line with 
-" x file changes in working directory" and a small box "View changes" in the above right corner. Click this one. First you have to commit what you have done, i.e. click on the Project_report.html-file on the right side and press Stage File. (And don´t stage all the other files) Then make a comment on what you have changed in the file, in the bottom right corner, and press the green box "Stage files/changes to commit". 
-After commiting you first have to pull what the other have done, i.e. press "Pull". If you get "pulled successfully" down in the left corner everything is okay and you can press "Push". 
-If not, then we might have some merge conflict we need to fix. 
-Always remember to do all these steps
-1. Commit
-2. Pull
-3. Push
-
-If you have edited the file, but don´t want to save it, only download what the others have done, you can press the "Stash" instead of pull and push. 
--->
-
+#Load data set
 ```{r setup, include=FALSE}
 #Have to include the files in the same folder the Rmarkdown is in.
 airlines = read.csv("airlines.csv")
 airports = read.csv("airports.csv")
 flights = read.csv("flights.csv")
-
 ```
 
-   
-# Introduction
-
-
-# Exploratory data analysis 
+# Run Libraries
 ```{r , echo=FALSE}
 #Libraries
 library(ggplot2)       #for ggplot
@@ -48,9 +27,9 @@ library(GGally)
 library(corrplot)
 library(DataExplorer)
 library(dplyr)
-library(MASS)          #for LDA
-library(nnet)          #for LDA
-library(leaps)         #for Forward selection
+# library(MASS)          #for LDA
+# library(nnet)          #for LDA
+# library(leaps)         #for Forward selection
 library(colorspace)    #for plot colors
 library(dplyr)         #for barplots
 library(tidyverse)     #for barplots
@@ -61,180 +40,299 @@ library(rpart)        #for fitting tree
 library(rpart.plot)   #for plotting tree
 library(leaflet)      #for map plots
 library(randomForest) # for randomForest
-library(pROC)         #ROC curve
 library(plotrix)
 ```
 
+
+# Introduction to data set
 ```{r , echo=TRUE}
-#Plots for the original data set
+handled_flights <- flights[,] 
 
-  ##Pie chart for diverted/cancelled/none
-  count_diverted <- sum(flights$DIVERTED==1)
-  count_cancelled <- sum(flights$CANCELLED==1)
-  count_scheduled <- sum(flights$DIVERTED==0 & flights$CANCELLED==0)
-  
-  slices <- c(count_diverted, count_cancelled, count_scheduled) 
-  lbls <- c("Diverted", "Cancelled", "Scheduled")
-  pct <- round(slices/sum(slices)*100, 2)
-  lbls <- paste(lbls, pct) # add percents to labels 
-  lbls <- paste(lbls,"%",sep="") # add % to labels 
-  pie(slices,labels = lbls, col=c("chocolate1","brown4","darkolivegreen2"),   #Not very good - use Carolina's chart
-     main="Percentage of flight types") 
-  
-  #Erase rows for cancelled or diverted flights
-  flights_plot <- flights[,]
-  flights_plot <- flights_plot[flights_plot$DIVERTED==0,]
-  flights_plot <- flights_plot[flights_plot$CANCELLED==0,]
-  
-  #Create list of existent airports
-  airports_list <- airports$IATA_CODE
-  
-  #Create list of existent airlines
-  airlines_list <- airlines$IATA_CODE
-  
-  #Show airports with invalid IATA codes
-  ghost_airports <- flights_plot[!(flights_plot$ORIGIN_AIRPORT %in% airports_list),]
-  ghost_airports<- droplevels(ghost_airports,exclude = ghost_airports$ORIGIN_AIRPORT %in% airports_list)
-  table(ghost_airports$MONTH) #all the flights are from october
-  
-  barplot(table(ghost_airports$ORIGIN_AIRPORT), main="Frequencies of accomplished ghost flights by Origin Airport",
-  xlab="Origin Airport", col=c("chartreuse3"), beside=TRUE)
-  
-    #Erase observations for origin_airports, destination_airports which are not contained in the data frame airports and airlines which are     not contained in the data frame airlines
-  flights_plot<- flights_plot[flights_plot$ORIGIN_AIRPORT %in% airports_list,]
-  flights_plot<- flights_plot[flights_plot$DESTINATION_AIRPORT %in% airports_list,]
-  flights_plot<- flights_plot[flights_plot$AIRLINE %in% airlines_list,]
-  
-  flights_plot<- droplevels(flights_plot,exclude = !(flights_plot$ORIGIN_AIRPORT %in% airports_list))
-  flights_plot<- droplevels(flights_plot,exclude = !(flights_plot$DESTINATION_AIRPORT %in% airports_list))
-  flights_plot<- droplevels(flights_plot,exclude = !(flights_plot$AIRLINE %in% airlines_list))
-  
-  
-  ##Barplot of flights per month, day, day of week, airline, origin/destination airport
-    #Month
-    barplot(table(flights_plot$MONTH), main="Frequencies of accomplished flights by Month",
-  xlab="Month", col=c("chartreuse3"), beside=TRUE)
-    #Day
-    barplot(table(flights_plot$DAY), main="Frequencies of accomplished flights by Day",
-  xlab="Day", col=c("chartreuse3"), beside=TRUE)
-    #Day of week
-    barplot(table(flights_plot$DAY_OF_WEEK), main="Frequencies of accomplished flights by Day Of Week",
-  xlab="Day of week", col=c("chartreuse3"), beside=TRUE)
-    #Airline
-    barplot(table(flights_plot$AIRLINE), main="Frequencies of accomplished flights by Airline",
-  xlab="Airline", col=c("chartreuse3"), beside=TRUE)
-    
-    #Origin airport
-     barplot(table(flights_plot$ORIGIN_AIRPORT), main="Frequencies of accomplished flights by Origin Airport",
-  xlab="Origin Airport", col=c("chartreuse3"), beside=TRUE)
-  
-    #Destination airport
-     barplot(table(flights_plot$DESTINATION_AIRPORT), main="Frequencies of accomplished flights by Destination Airport",
-  xlab="Destination Airport", col=c("chartreuse3"), beside=TRUE)
-  
-  
-  
-  
+##Pie chart for diverted/cancelled/none
+count_diverted <- sum(handled_flights$DIVERTED==1)
+count_cancelled <- sum(handled_flights$CANCELLED==1)
+count_scheduled <- sum(handled_flights$DIVERTED==0 & handled_flights$CANCELLED==0)
 
+slices <- c(count_diverted, count_cancelled, count_scheduled) 
+lbls <- c("Diverted", "Cancelled", "Scheduled")
+pct <- round(slices/sum(slices)*100, 2)
+lbls <- paste(lbls, pct) # add percents to labels 
+lbls <- paste(lbls,"%",sep="") # add % to labels 
+pie(slices,labels = lbls, col=c("firebrick","brown4","chartreuse3"),   #Not very good - use Carolina's chart
+   main="Percentage of flight types") 
 ```
 
 ```{r , echo=TRUE}
+#Erase observations correspondent to cancelled and diverted flights
+handled_flights <- handled_flights[handled_flights$DIVERTED==0,]
+handled_flights <- handled_flights[handled_flights$CANCELLED==0,]
 
-handled_flights <- flights[,]  
-
-
-#Erase the observations for which there was no information concerning the arrival delay
+#Ensure that we are only dealing with observations for which Arrival delay is defined
 handled_flights<- handled_flights[is.na(handled_flights$ARRIVAL_DELAY)==FALSE,]
-#As a result, we end up with no cancelled flights, since the ones that arrived (so the arrival delay will have some value) are the ones that were not cancelled
 
+#Erase columns which are not relevant to our problem
+handled_flights$DIVERTED <- NULL
+handled_flights$CANCELLED <- NULL
+handled_flights$CANCELLATION_REASON <- NULL
+```
+
+```{r , echo=TRUE}
 #Change handled_flights dataframe data types to the correct ones
-#Discrete variables must be considered as FACTORs
+#Discrete variables must be considered as FACTORs, continuous variables should be considered as NUMERICs
 handled_flights$YEAR <- as.factor(handled_flights$YEAR)
+counts_year <- as.matrix(table(handled_flights$YEAR)) 
+counts_year_mean <- colSums(counts_year)/dim(counts_year)[1]
+max(counts_year)
+min(counts_year)
+median(counts_year)
+sd(counts_year)
+
 handled_flights$MONTH <- as.factor(handled_flights$MONTH)
+counts_month <- as.matrix(table(handled_flights$MONTH)) 
+counts_month_mean <- colSums(counts_month)/dim(counts_month)[1]
+max(counts_month)
+min(counts_month)
+median(counts_month)
+sd(counts_month)
+
+
 handled_flights$DAY <- as.factor(handled_flights$DAY)
+counts_day <- as.matrix(table(handled_flights$DAY)) 
+counts_day_mean <- colSums(counts_day)/dim(counts_day)[1]
+max(counts_day)
+min(counts_day)
+median(counts_day)
+sd(counts_day)
+
 handled_flights$DAY_OF_WEEK <- as.factor(handled_flights$DAY_OF_WEEK)
+counts_dayofweek <- as.matrix(table(handled_flights$DAY_OF_WEEK)) 
+counts_dayofweek_mean <- colSums(counts_dayofweek)/dim(counts_dayofweek)[1]
+max(counts_dayofweek)
+min(counts_dayofweek)
+median(counts_dayofweek)
+sd(counts_dayofweek)
+
+counts_airline <- as.matrix(table(handled_flights$AIRLINE))
+counts_airline_mean <- colSums(counts_airline)/dim(counts_airline)[1]
+max(counts_airline)
+min(counts_airline)
+median(counts_airline)
+sd(counts_airline)
+
+
 handled_flights$FLIGHT_NUMBER <- as.factor(handled_flights$FLIGHT_NUMBER)
+counts_flightnumber <- as.matrix(table(handled_flights$FLIGHT_NUMBER))
+counts_flightnumber_mean <- colSums(counts_flightnumber)/dim(counts_flightnumber)[1]
+max(counts_flightnumber)
+min(counts_flightnumber)
+median(counts_flightnumber)
+sd(counts_flightnumber)
+
+counts_tailnumber <- as.matrix(table(handled_flights$TAIL_NUMBER))
+counts_tailnumber_mean <- colSums(counts_tailnumber)/dim(counts_tailnumber)[1]
+max(counts_tailnumber)
+min(counts_tailnumber)
+median(counts_tailnumber)
+sd(counts_tailnumber)
+
+counts_origin_airport <- as.matrix(table(handled_flights$ORIGIN_AIRPORT))
+counts_origin_airport_mean <- colSums(counts_origin_airport)/dim(counts_origin_airport)[1]
+max(counts_origin_airport)
+min(counts_origin_airport)
+median(counts_origin_airport)
+sd(counts_origin_airport)
+
+counts_destination_airport <- as.matrix(table(handled_flights$DESTINATION_AIRPORT))
+counts_destination_airport_mean <- colSums(counts_destination_airport)/dim(counts_destination_airport)[1]
+max(counts_destination_airport)
+min(counts_destination_airport)
+median(counts_destination_airport)
+sd(counts_destination_airport)
+
+
+
 
 handled_flights$SCHEDULED_DEPARTURE <- as.numeric(handled_flights$SCHEDULED_DEPARTURE)
+min(handled_flights$SCHEDULED_DEPARTURE)
+max(handled_flights$SCHEDULED_DEPARTURE)
 mean(handled_flights$SCHEDULED_DEPARTURE)
 median(handled_flights$SCHEDULED_DEPARTURE)
 sd(handled_flights$SCHEDULED_DEPARTURE)
 
 handled_flights$DEPARTURE_TIME <- as.numeric(handled_flights$DEPARTURE_TIME)
+min(handled_flights$DEPARTURE_TIME)
+max(handled_flights$DEPARTURE_TIME)
 mean(handled_flights$DEPARTURE_TIME)
 median(handled_flights$DEPARTURE_TIME)
 sd(handled_flights$DEPARTURE_TIME)
 
 handled_flights$DEPARTURE_DELAY <- as.numeric(handled_flights$DEPARTURE_DELAY)
+min(handled_flights$DEPARTURE_DELAY)
+max(handled_flights$DEPARTURE_DELAY)
 mean(handled_flights$DEPARTURE_DELAY)
 median(handled_flights$DEPARTURE_DELAY)
 sd(handled_flights$DEPARTURE_DELAY)
 
 handled_flights$TAXI_OUT <- as.numeric(handled_flights$TAXI_OUT)
+min(handled_flights$TAXI_OUT)
+max(handled_flights$TAXI_OUT)
 mean(handled_flights$TAXI_OUT)
 median(handled_flights$TAXI_OUT)
 sd(handled_flights$TAXI_OUT)
 
 handled_flights$WHEELS_OFF <- as.numeric(handled_flights$WHEELS_OFF)
+min(handled_flights$WHEELS_OFF)
+max(handled_flights$WHEELS_OFF)
 mean(handled_flights$WHEELS_OFF)
 median(handled_flights$WHEELS_OFF)
 sd(handled_flights$WHEELS_OFF)
 
 handled_flights$SCHEDULED_TIME <- as.numeric(handled_flights$SCHEDULED_TIME)
+min(handled_flights$SCHEDULED_TIME)
+max(handled_flights$SCHEDULED_TIME)
 mean(handled_flights$SCHEDULED_TIME)
 median(handled_flights$SCHEDULED_TIME)
 sd(handled_flights$SCHEDULED_TIME)
 
 handled_flights$ELAPSED_TIME <- as.numeric(handled_flights$ELAPSED_TIME)
+min(handled_flights$ELAPSED_TIME)
+max(handled_flights$ELAPSED_TIME)
 mean(handled_flights$ELAPSED_TIME)
 median(handled_flights$ELAPSED_TIME)
 sd(handled_flights$ELAPSED_TIME)
 
 handled_flights$AIR_TIME <- as.numeric(handled_flights$AIR_TIME)
+min(handled_flights$AIR_TIME)
+max(handled_flights$AIR_TIME)
 mean(handled_flights$AIR_TIME)
 median(handled_flights$AIR_TIME)
 sd(handled_flights$AIR_TIME)
 
 handled_flights$DISTANCE <- as.numeric(handled_flights$DISTANCE)
+min(handled_flights$DISTANCE)
+max(handled_flights$DISTANCE)
 mean(handled_flights$DISTANCE)
 median(handled_flights$DISTANCE)
 sd(handled_flights$DISTANCE)
 
 handled_flights$WHEELS_ON <- as.numeric(handled_flights$WHEELS_ON)
+min(handled_flights$WHEELS_ON)
+max(handled_flights$WHEELS_ON)
 mean(handled_flights$WHEELS_ON)
 median(handled_flights$WHEELS_ON)
 sd(handled_flights$WHEELS_ON)
 
 handled_flights$TAXI_IN <- as.numeric(handled_flights$TAXI_IN)
+min(handled_flights$TAXI_IN)
+max(handled_flights$TAXI_IN)
 mean(handled_flights$TAXI_IN)
 median(handled_flights$TAXI_IN)
 sd(handled_flights$TAXI_IN)
 
 handled_flights$SCHEDULED_ARRIVAL <- as.numeric(handled_flights$SCHEDULED_ARRIVAL)
+min(handled_flights$SCHEDULED_ARRIVAL)
+max(handled_flights$SCHEDULED_ARRIVAL)
 mean(handled_flights$SCHEDULED_ARRIVAL)
 median(handled_flights$SCHEDULED_ARRIVAL)
 sd(handled_flights$SCHEDULED_ARRIVAL)
 
 handled_flights$ARRIVAL_TIME <- as.numeric(handled_flights$ARRIVAL_TIME)
+min(handled_flights$ARRIVAL_TIME)
+max(handled_flights$ARRIVAL_TIME)
 mean(handled_flights$ARRIVAL_TIME)
 median(handled_flights$ARRIVAL_TIME)
 sd(handled_flights$ARRIVAL_TIME)
 
 handled_flights$ARRIVAL_DELAY <- as.numeric(handled_flights$ARRIVAL_DELAY)
+min(handled_flights$ARRIVAL_DELAY)
+max(handled_flights$ARRIVAL_DELAY)
 mean(handled_flights$ARRIVAL_DELAY)
 median(handled_flights$ARRIVAL_DELAY)
 sd(handled_flights$ARRIVAL_DELAY)
+```
 
-handled_flights$DIVERTED <- as.factor(handled_flights$DIVERTED)
-handled_flights$CANCELLED <- as.factor(handled_flights$CANCELLED)
+# Response variable
+
+```{r , echo=TRUE}
+#Define 2 categories for the response variable (None, Delayed) 
+# handled_flights$DELAY <- as.factor( ifelse(handled_flights$ARRIVAL_DELAY < 1,handled_flights$DELAY <- "None", handled_flights$DELAY <- "Delayed"))
+
+#Check response variable categories distribution in handled_flights
+count_delays <- as.matrix(table(handled_flights$DELAY))
+count_delayed <-counts_delays[1]
+count_nodelayed <-counts_delays[2]
 
 
+slices <- c(count_delayed, count_nodelayed) 
+lbls <- c("Delayed", "None")
+pct <- round(slices/sum(slices)*100, 2)
+lbls <- paste(lbls, pct) # add percents to labels 
+lbls <- paste(lbls,"%",sep="") # add % to labels 
+pie(slices,labels = lbls, col=c("firebrick2", "green3"),   
+   main="Distribution of response variable classes") 
 
-#Remove columns YEAR (2015 for all observations), CANCELLATION_REASON (since we are now dealing with flights that were not canceled), CANCELLED (will have 0's since these are the flights that were not cancelled) and DIVERTED (will have 1's for observations where ARRIVAL DELAY = NA,so we may remove this column)
+#CONSIDER 4 CATEGORIES FOR RESPONSE ( We tried... :( )
+    #To define the degree of delay, we consider the median and mean value, for example, considering only the         values   of ARRIVAL_DELAY > 0, which represent delays
+    #median(handled_flights$ARRIVAL_DELAY[handled_flights$ARRIVAL_DELAY>0]) #mean = 33.11 median = 15  
+    #mean(handled_flights$ARRIVAL_DELAY[handled_flights$ARRIVAL_DELAY>0])
+
+    handled_flights$DELAY <- as.factor( ifelse(handled_flights$ARRIVAL_DELAY < 1,handled_flights$DELAY <-           "None", ifelse(handled_flights$ARRIVAL_DELAY <16,handled_flights$DELAY <- "Low",                                 ifelse(handled_flights$ARRIVAL_DELAY <34,handled_flights$DELAY <- "Medium", handled_flights$DELAY <-             "High"))) )
+  
+  
+    #Separate data into the 4 categories and report results
+    #nodelay <- flights_to_predict[flights_to_predict$DELAY=="None",]
+    #lowdelay <- flights_to_predict[flights_to_predict$DELAY=='Low',]
+    #mediumdelay <- flights_to_predict[flights_to_predict$DELAY=='Medium',]
+    #highdelay <- flights_to_predict[flights_to_predict$DELAY=='High',]
+    
+    # create_report(nodelay, output_file = 'nodelay.html')
+    # create_report(lowdelay, output_file = 'lowdelay.html')
+    # create_report(mediumdelay, output_file = 'mediumdelay.html')
+    # create_report(highdelay, output_file = 'highdelay.html')
+
+
+#Since our objective is to predict the delay of a flight, we must give to the classifier only the variables      corresponding to subjects known a priori
+
+#Maintain a priori columns and remove a posteriori columns
+handled_flights$DEPARTURE_TIME <- NULL
+handled_flights$DEPARTURE_DELAY <- NULL
+handled_flights$TAXI_OUT <- NULL                             
+handled_flights$WHEELS_OFF <- NULL
+handled_flights$ELAPSED_TIME <- NULL
+handled_flights$AIR_TIME <- NULL
+handled_flights$DISTANCE <- NULL    
+handled_flights$WHEELS_ON <- NULL
+handled_flights$TAXI_IN <- NULL
+handled_flights$ARRIVAL_TIME <- NULL
+handled_flights$ARRIVAL_DELAY <- NULL
+handled_flights$AIR_SYSTEM_DELAY <- NULL
+handled_flights$SECURITY_DELAY <- NULL
+handled_flights$AIRLINE_DELAY <- NULL
+handled_flights$LATE_AIRCRAFT_DELAY <- NULL
+handled_flights$WEATHER_DELAY <- NULL
+```
+
+# Data exploration
+```{r , echo=TRUE}
+#Remove columns YEAR (2015 for all observations)
 handled_flights$YEAR <- NULL
-handled_flights$DIVERTED <- NULL
-handled_flights$CANCELLED <- NULL
-handled_flights$CANCELLATION_REASON <- NULL
+
+
+#Show airports with invalid IATA codes
+ghost_airports <- handled_flights[!(handled_flights$ORIGIN_AIRPORT %in% airports_list),]
+ghost_airports<- droplevels(ghost_airports,exclude = ghost_airports$ORIGIN_AIRPORT %in% airports_list)
+
+ghost_airports <- ghost_airports[!(ghost_airports$DESTINATION_AIRPORT %in% airports_list),]
+ghost_airports<- droplevels(ghost_airports,exclude = ghost_airports$DESTINATION_AIRPORT %in% airports_list)
+
+table(ghost_airports$MONTH) #all the flights are from october
+
+barplot(table(ghost_airports$ORIGIN_AIRPORT), main="Frequencies of ghost flights by Origin Airport",
+xlab="Origin Airport", xaxt = "n", col=c("gray0"), beside=TRUE)
+
+barplot(table(ghost_airports$DESTINATION_AIRPORT), main="Frequencies of ghost flights by Destination Airport",
+xlab="Destination Airport", xaxt = "n", col=c("gray0"), beside=TRUE)
+
 
 #Create list of existent airports
 airports_list <- airports$IATA_CODE
@@ -244,168 +342,192 @@ airlines_list <- airlines$IATA_CODE
 
 #Erase observations for origin_airports, destination_airports which are not contained in the data frame airports and airlines which are not contained in the data frame airlines
 handled_flights<- handled_flights[handled_flights$ORIGIN_AIRPORT %in% airports_list,]
-handled_flights<- handled_flights[handled_flights$DESTINATION_AIRPORT %in% airports_list,]
-handled_flights<- handled_flights[handled_flights$AIRLINE %in% airlines_list,]
-
 handled_flights<- droplevels(handled_flights,exclude = !(handled_flights$ORIGIN_AIRPORT %in% airports_list))
+
+handled_flights<- handled_flights[handled_flights$DESTINATION_AIRPORT %in% airports_list,]
 handled_flights<- droplevels(handled_flights,exclude = !(handled_flights$DESTINATION_AIRPORT %in% airports_list))
+
+handled_flights<- handled_flights[handled_flights$AIRLINE %in% airlines_list,]
 handled_flights<- droplevels(handled_flights,exclude = !(handled_flights$AIRLINE %in% airlines_list))
 
-```
 
+#create_report(handled_flights, output_file = 'report_corr.html')
 
-## Response variable
-
-```{r , echo=TRUE}
-set.seed(0)
-flights_small <- sample_n(handled_flights, 30000)     
-
-#CONSIDER 4 CATEGORIES FOR RESPONSE
-#To define the degree of delay, we consider the median and mean value, for example, considering only the values of ARRIVAL_DELAY > 0, which represent delays
-#median(handled_flights$ARRIVAL_DELAY[handled_flights$ARRIVAL_DELAY>0]) #mean = 33.56 median = 15  
-#mean(handled_flights$ARRIVAL_DELAY[handled_flights$ARRIVAL_DELAY>0])
-
-#flights_small$DELAY <- as.factor( ifelse(flights_small$ARRIVAL_DELAY < 1,flights_small$DELAY <- "None", ifelse(flights_small$ARRIVAL_DELAY <16,flights_small$DELAY <- "Low", ifelse(flights_small$ARRIVAL_DELAY <34,flights_small$DELAY <- "Medium", flights_small$DELAY <- "High"))) )
-
-
-#Define 2 categories for the response variable(None, Delayed) 
-flights_small$DELAY <- as.factor( ifelse(flights_small$ARRIVAL_DELAY < 1,flights_small$DELAY <- "None", flights_small$DELAY <- "Delayed"))
-
-
-#Check response variable categories distribution in flights_small
-counts_nodelay <- as.matrix(table(flights_small$DELAY=="None")) #The categories are not balanced - chose "manually" the observations so we get what desired, compromising the airline balance?
-counts_nodelay <- counts_nodelay/colSums(counts_nodelay)
-
-#Why we chose to remove Flight number and tail number
-#plot_bar(flights_small)
-
-
-
-#Since our objective is to predict the delay of a flight, we might walk a mile in someone else's shoes, this time, in the shoes of someone who is about to take a flight.
-#So, we must give to the classifier, only the variables corresponding to subjects known a priori: scheduled departure, etc.
-
-#plot_missing(flights_small)
-
-#Maintain a priori columns and remove a posteriori columns
-flights_to_predict <- flights_small[,]
-flights_to_predict$DEPARTURE_TIME <- NULL
-flights_to_predict$DEPARTURE_DELAY <- NULL
-flights_to_predict$TAXI_OUT <- NULL                             
-flights_to_predict$WHEELS_OFF <- NULL
-flights_to_predict$ELAPSED_TIME <- NULL
-flights_to_predict$AIR_TIME <- NULL
-flights_to_predict$DISTANCE <- NULL    
-flights_to_predict$WHEELS_ON <- NULL
-flights_to_predict$TAXI_IN <- NULL
-flights_to_predict$ARRIVAL_TIME <- NULL
-flights_to_predict$ARRIVAL_DELAY <- NULL
-flights_to_predict$AIR_SYSTEM_DELAY <- NULL
-flights_to_predict$SECURITY_DELAY <- NULL
-flights_to_predict$AIRLINE_DELAY <- NULL
-flights_to_predict$LATE_AIRCRAFT_DELAY <- NULL
-flights_to_predict$WEATHER_DELAY <- NULL
-
-#Remove flight number and tail number variables since they have various levels - show that there is no influence on the categories (PLots, Histograms, etc)
-flights_to_predict$FLIGHT_NUMBER <- NULL
-flights_to_predict$TAIL_NUMBER <- NULL
-
-#Separate data into the 4 categories and report results
-#nodelay <- flights_to_predict[flights_to_predict$DELAY=="None",]
-#lowdelay <- flights_to_predict[flights_to_predict$DELAY=='Low',]
-#mediumdelay <- flights_to_predict[flights_to_predict$DELAY=='Medium',]
-#highdelay <- flights_to_predict[flights_to_predict$DELAY=='High',]
-
-# create_report(nodelay, output_file = 'nodelay.html')
-# create_report(lowdelay, output_file = 'lowdelay.html')
-# create_report(mediumdelay, output_file = 'mediumdelay.html')
-# create_report(highdelay, output_file = 'highdelay.html')
-
-#Temporary remove this variables 
-# flights_to_predict$MONTH <- NULL
-# flights_to_predict$DAY <- NULL
-# flights_to_predict$DAY_OF_WEEK <- NULL
-# flights_to_predict$FLIGHT_NUMBER <- NULL
-# flights_to_predict$TAIL_NUMBER <- NULL
-# flights_to_predict$ORIGIN_AIRPORT <- NULL
-# flights_to_predict$DESTINATION_AIRPORT <- NULL
-# flights_to_predict$SCHEDULED_DEPARTURE <- NULL
-# flights_to_predict$SCHEDULED_ARRIVAL <- NULL
-# flights_to_predict$SCHEDULED_TIME <- NULL
-# flights_to_predict$AIRLINE <- NULL
-
-```
-
-## Exploratory data analysis Plots and Graphs and Histograms
-```{r , echo=TRUE}
-#FOR handled_flights (can be seen as the "original" data set, since it did not suffer undersampling)
-
-#Number of delayed and not delayed flights
-handled_flights$DELAY <- as.factor( ifelse(handled_flights$ARRIVAL_DELAY < 1,handled_flights$DELAY <- "None", handled_flights$DELAY <- "Delayed"))
-
-handled_flights_delayed <- dim(handled_flights[handled_flights$DELAY=='Delayed',])[1]
-handled_flights_notdelayed <- dim(handled_flights[handled_flights$DELAY=='None',])[1]
-
-#Histogram with Number of delayed and not delayed flights
-barplot(table(handled_flights$DELAY), main="Frequencies of response variable categories - Original data set",
-  xlab="Categories", col=c("firebrick", "chartreuse3"), args.legend = list(x="topleft"),
-  legend = rownames(table(handled_flights$DELAY)), beside=TRUE)
-
+#Verify that flight number and tail number have no influence
 #Barplot of the delays per Month - original data set
-barplot(table(handled_flights$DELAY, handled_flights$MONTH), main="Categories of delay by Month - Original data set",
-  xlab="Month", col=c("firebrick", "chartreuse3"), args.legend = list(x="topleft"),
+non_delayed <- handled_flights[handled_flights$DELAY=='None',]
+delayed <-  handled_flights[handled_flights$DELAY=='Delayed',]
+
+barplot(table(non_delayed$FLIGHT_NUMBER), main="Frequencies of non delayed flights by Flight Number",
+  xlab="Flight Number", xaxt = "n",col=c("chartreuse3"), beside=TRUE)
+
+barplot(table(delayed$FLIGHT_NUMBER), main="Frequencies of delayed flights by Flight Number",
+  xlab="Flight Number", xaxt = "n",col=c("firebrick"), beside=TRUE)
+
+barplot(table(non_delayed$TAIL_NUMBER), main="Frequencies of non delayed flights by Tail Number",
+  xlab="Tail Number", xaxt = "n",col=c("chartreuse3"), beside=TRUE)
+
+barplot(table(delayed$TAIL_NUMBER), main="Frequencies of delayed flights by Tail Number",
+  xlab="Tail Number", xaxt = "n", col=c("firebrick"), beside=TRUE)
+```
+
+```{r , echo=TRUE}
+#Erase columns with too many categories
+handled_flights$FLIGHT_NUMBER <- NULL
+handled_flights$TAIL_NUMBER <- NULL
+```
+
+```{r , echo=TRUE}
+#Barplot of the delays per Month
+#Total
+barplot(table(handled_flights$MONTH), main="Frequencies of flights by Month",
+  xlab="Month", col=c("darkturquoise"), args.legend = list(x="bottomleft"),
+  legend = rownames(handled_flights$MONTH), beside=TRUE)
+
+barplot(table(handled_flights$DELAY, handled_flights$MONTH), main="Distribution of response variable classes by Month",
+  xlab="Month", col=c("firebrick", "chartreuse3"), args.legend = list(x="bottomleft"),
   legend = rownames(table(handled_flights$DELAY, handled_flights$MONTH)), beside=TRUE)
 
-#Barplot of the delays per Day - original data set
-barplot(table(handled_flights$DELAY, handled_flights$DAY), main="Categories of delay by Day - Original data set",
-  xlab="Day", col=c("firebrick", "chartreuse3"), args.legend = list(x="topleft"),
+#Barplot of the delays per Day
+#Total
+barplot(table(handled_flights$DAY), main="Frequencies of flights by Day",
+  xlab="Day", col=c("darkturquoise"), args.legend = list(x="bottomleft"),
+  legend = rownames(handled_flights$DAY), beside=TRUE)
+
+barplot(table(handled_flights$DELAY, handled_flights$DAY), main="Distribution of response variable classes by Day",
+  xlab="Day", col=c("firebrick", "chartreuse3"), args.legend = list(x="bottomleft"),
   legend = rownames(table(handled_flights$DELAY, handled_flights$DAY)), beside=TRUE)
 
-#Barplot of the delays per Day Of Week - original data set
-barplot(table(handled_flights$DELAY, handled_flights$DAY_OF_WEEK), main="Categories of delay by Day Of Week - Original data set",
-  xlab="Day Of Week", col=c("firebrick", "chartreuse3"), args.legend = list(x="topleft"),
+#Barplot of the delays per Day Of Week
+#Total
+barplot(table(handled_flights$DAY_OF_WEEK), main="Frequencies of flights by Day Of Week",
+  xlab="Day Of Week", col=c("darkturquoise"), args.legend = list(x="bottomleft"),
+  legend = rownames(handled_flights$DAY_OF_WEEK), beside=TRUE)
+
+barplot(table(handled_flights$DELAY, handled_flights$DAY_OF_WEEK), main="Distribution of response variable classes by Day Of Week",
+  xlab="Day Of Week", col=c("firebrick", "chartreuse3"), args.legend = list(x="bottomleft"),
   legend = rownames(table(handled_flights$DELAY, handled_flights$DAY_OF_WEEK)), beside=TRUE)
 
-#Barplot of the delays per Airline - original data set
-barplot(table(handled_flights$DELAY, handled_flights$AIRLINE), main="Categories of delay by Airline - Original data set",
+#Barplot of the delays per Airline 
+#Total
+barplot(table(handled_flights$AIRLINE), main="Frequencies of flights by Airline",
+  xlab="Airline", col=c("darkturquoise"), args.legend = list(x="bottomleft"),
+  legend = rownames(handled_flights$AIRLINE), beside=TRUE)
+
+barplot(table(handled_flights$DELAY, handled_flights$AIRLINE), main="Distribution of response variable classes by Airline",
   xlab="Airlines", col=c("firebrick", "chartreuse3"), args.legend = list(x="topleft"),
   legend = rownames(table(handled_flights$DELAY, handled_flights$AIRLINE)), beside=TRUE)
 
 
+#Barplot of the delays per Scheduled Departure
+#Total
+# set up cut-off values 
+breaks <- c(0:24)*100
+# specify interval/bin labels
+tags <- c("[0-1)","[1-2)", "[2-3)", "[3-4)", "[4-5)", "[5-6)","[6-7)", "[7-8)","[8-9)", "[9-10)", "[10-11)",
+          "[11-12)","[12-13)", "[13-14)", "[14-15)", "[15-16)", "[16-17)","[17-18)", "[18-19)","[19-20)", "[20-21)", "[21-22)", "[22-23)","[23-24)")
+#bucketing values into bins
+group_tags_departure <- cut(handled_flights$SCHEDULED_DEPARTURE, 
+                  breaks=breaks, 
+                  include.lowest=TRUE, 
+                  right=FALSE, 
+                  labels=tags) 
 
-#FOR flights_to_predict
+barplot(table(group_tags_departure), main="Distribution of flights by Scheduled Departure Hour",
+  xlab="Scheduled Departure Hour", col=c("darkturquoise"), width = 1, space = 0.1, beside=TRUE, height = table(group_tags_departure), xaxt = "n")
 
-#Histogram with Number of delayed and not delayed flights
-barplot(table(flights_to_predict$DELAY), main="Frequencies of response variable categories - Final data set",
-  xlab="Categories", col=c("firebrick", "chartreuse3"), args.legend = list(x="topleft"),
-  legend = rownames(table(flights_to_predict$DELAY)), beside=TRUE)
 
-#Barplot of the delays per Month - final data set
-barplot(table(flights_to_predict$DELAY, flights_to_predict$MONTH), main="Categories of delay by Month - Final data set",
-  xlab="Month", col=c("firebrick", "chartreuse3"), args.legend = list(x="topleft"),
-  legend = rownames(table(flights_to_predict$DELAY, flights_to_predict$MONTH)), beside=TRUE)
+#By Category ---------------------------------------TO DO
 
-#Barplot of the delays per Day - final data set
-barplot(table(flights_to_predict$DELAY, flights_to_predict$DAY), main="Categories of delay by Day - Final data set",
-  xlab="Day", col=c("firebrick", "chartreuse3"), args.legend = list(x="topleft"),
-  legend = rownames(table(flights_to_predict$DELAY, flights_to_predict$DAY)), beside=TRUE)
 
-#Barplot of the delays per Day Of Week - final data set
-barplot(table(flights_to_predict$DELAY, flights_to_predict$DAY_OF_WEEK), main="Categories of delay by Day Of Week - Final data set",
-  xlab="Day of Week", col=c("firebrick", "chartreuse3"), args.legend = list(x="topleft"),
-  legend = rownames(table(flights_to_predict$DELAY, flights_to_predict$DAY_OF_WEEK)), beside=TRUE)
 
-#Barplot of the delays per Airline - final data set
-barplot(table(flights_to_predict$DELAY, flights_to_predict$AIRLINE), main="Categories of delay by Airline - Final data set",
-  xlab="Airlines", col=c("firebrick", "chartreuse3"), args.legend = list(x="topleft"),
-  legend = rownames(table(flights_to_predict$DELAY, flights_to_predict$AIRLINE)), beside=TRUE)
+#Barplot of the delays per Scheduled Arrival
+# bucketing values into bins
+group_tags_arrival <- cut(handled_flights$SCHEDULED_ARRIVAL, 
+                  breaks=breaks, 
+                  include.lowest=TRUE, 
+                  right=FALSE, 
+                  labels=tags)
 
+barplot(table(group_tags_arrival), main="Distribution of flights by Scheduled Arrival Hour",
+  xlab="Scheduled Arrival Hour", col=c("darkturquoise"), width = 1, space = 0.1, beside=TRUE, height = table(group_tags_arrival), xaxt = "n")
+
+#By Category  ---------------------------------------TO DO
+
+
+
+
+#Barplot of the delays per Scheduled Time
+breaks <- c(0:15)*50
+tags <- c("[0-50)","[50-100)", "[100-150)", "[150-200)", "[200-250)", "[250-300)","[300-350)", "[350-400)","[400-450)", "[450-500)", "[500-550)", "[550-600)","[600-650)", "[650-700)", "[700-750)")
+
+group_tags_time <- cut(handled_flights$SCHEDULED_TIME, 
+                  breaks=breaks, 
+                  include.lowest=TRUE, 
+                  right=FALSE, 
+                  labels=tags)
+
+barplot(table(group_tags_time), main="Distribution of flights by Scheduled Time",
+  xlab="Scheduled Time (minutes)", col=c("darkturquoise"), width = 1, space = 0.1, beside=TRUE, height = table(group_tags_time), xaxt = "n")
+
+#By Category  ---------------------------------------TO DO
+
+
+
+
+non_delayed <- handled_flights[handled_flights$DELAY=='None',]
+delayed <-  handled_flights[handled_flights$DELAY=='Delayed',]
+
+
+#Schedule Departure Metrics
+mean(non_delayed$SCHEDULED_DEPARTURE)
+min(non_delayed$SCHEDULED_DEPARTURE)
+max(non_delayed$SCHEDULED_DEPARTURE)
+median(non_delayed$SCHEDULED_DEPARTURE)
+sd(non_delayed$SCHEDULED_DEPARTURE)
+
+mean(delayed$SCHEDULED_DEPARTURE)
+min(delayed$SCHEDULED_DEPARTURE)
+max(delayed$SCHEDULED_DEPARTURE)
+median(delayed$SCHEDULED_DEPARTURE)
+sd(delayed$SCHEDULED_DEPARTURE)
+
+#Schedule Arrival Metrics
+mean(non_delayed$SCHEDULED_ARRIVAL)
+min(non_delayed$SCHEDULED_ARRIVAL)
+max(non_delayed$SCHEDULED_ARRIVAL)
+median(non_delayed$SCHEDULED_ARRIVAL)
+sd(non_delayed$SCHEDULED_ARRIVAL)
+
+mean(delayed$SCHEDULED_ARRIVAL)
+min(delayed$SCHEDULED_ARRIVAL)
+max(delayed$SCHEDULED_ARRIVAL)
+median(delayed$SCHEDULED_ARRIVAL)
+sd(delayed$SCHEDULED_ARRIVAL)
+
+#Schedule Time Metrics
+mean(non_delayed$SCHEDULED_TIME)
+min(non_delayed$SCHEDULED_TIME)
+max(non_delayed$SCHEDULED_TIME)
+median(non_delayed$SCHEDULED_TIME)
+sd(non_delayed$SCHEDULED_TIME)
+
+mean(delayed$SCHEDULED_TIME)
+min(delayed$SCHEDULED_TIME)
+max(delayed$SCHEDULED_TIME)
+median(delayed$SCHEDULED_TIME)
+sd(delayed$SCHEDULED_TIME)
 
 ```
-
 
 ## Final data set
 
 ```{r , echo=TRUE}
+set.seed(0)
+flights_small <- sample_n(handled_flights, 30000)   
+
+#Guarantee sampling distributions are OK
+
 #Find the percentages of each airline
 n = dim(handled_flights)[1]
 counts <- table(handled_flights$AIRLINE)
@@ -432,21 +554,12 @@ percentdelayedbyairline2 <- counts4/counts2
 percentdelayedbyairline
 percentdelayedbyairline2 
 
-#Check if the variable distributions are maintained after sampling- NO! BECAUSE WE MUST MANTAIN THE BALANCE BETWEEN CLASSES
+#Check if the variable distributions are maintained after sampling
 # create_report(flights_small, output_file = 'report_flights_small.html')
 # create_report(handled_flights, output_file = 'report_handled_flights.html')
 
 
-#Check correlation
-#plot_correlation((flights_to_predict[, 1:10]), type = "continuous")
-#Maybe comment in the report that this seems okay!
-#WE CAN SHOW THIS PLOT JUST FOR THE 3 CONTINUOUS VARIABLES
-
-
-
 ```
-
-   
 
 # PART 2: SOLVE CLASSIFICATION PROBLEM
 
@@ -460,40 +573,39 @@ percentdelayedbyairline2
 #Test: evaluate the fit of the classifier and compare it with the others
 
 set.seed(0)   # To fix the random process at splitting data
-num_obs <- dim(flights_to_predict)[1]
+num_obs <- dim(flights_small)[1]
 index_list <- c(1:num_obs)
 train_index <- sample(index_list, num_obs*0.7)
 test_valid_index <- setdiff(index_list, train_index)
 test_index <- sample(test_valid_index, length(test_valid_index)*0.5)
 valid_index <- setdiff(test_valid_index, test_index)
 
-train_data <- flights_to_predict[train_index,]
-train_data_x <- flights_to_predict[train_index,]
+train_data <- flights_small[train_index,]
+train_data_x <- flights_small[train_index,]
 train_data_x$DELAY <- NULL 
-train_data_y <- (flights_to_predict[train_index,])$DELAY
+train_data_y <- (flights_small[train_index,])$DELAY
 
 
-valid_data <- flights_to_predict[valid_index,]
-valid_data_x <- flights_to_predict[valid_index,]
+valid_data <- flights_small[valid_index,]
+valid_data_x <- flights_small[valid_index,]
 valid_data_x$DELAY <- NULL 
-valid_data_y <- (flights_to_predict[valid_index,])$DELAY
+valid_data_y <- (flights_small[valid_index,])$DELAY
 
 #Check percentages of delay and none in valid set
 percent <- table(valid_data$DELAY)/dim(valid_data)[1]
 
 
-test_data <- flights_to_predict[test_index,]
-test_data_x <- flights_to_predict[test_index,]
+test_data <- flights_small[test_index,]
+test_data_x <- flights_small[test_index,]
 test_data_x$DELAY <- NULL 
-test_data_y <- (flights_to_predict[test_index,])$DELAY
+test_data_y <- (flights_small[test_index,])$DELAY
 
 #Checking distribution in original and partitioned data  
 # prop.table(table(train_data_y)) * 100 # at training set 
 # prop.table(table(test_data_y)) * 100  # at testing set
 # prop.table(table(valid_data_y)) * 100  # at validation set
-# prop.table(table(flights_to_predict$DELAY)) * 100  # at original dataset
+# prop.table(table(flights_small$DELAY)) * 100  # at original dataset
 #THIS SEEMS FINE!
-
 
 ```
 
@@ -540,12 +652,12 @@ table(predictNBLap, valid_data_y)
 #      None       1235 2322
 
 #Compute NB error
-mean(valid_data_y != predictNBLap) #0.3848889   -> 0.3866667
+mean(valid_data_y != predictNBLap) #0.3866667
 
 #Compute NB accuracy
-mean(valid_data_y == predictNBLap) #0.6151111  -> 0.6133333
+mean(valid_data_y == predictNBLap) #0.6133333
 
-posPredNBLap <- posPredValue(predictNBLap, valid_data_y, positive = "None") #0.6515361  -> 0.6527973
+posPredNBLap <- posPredValue(predictNBLap, valid_data_y, positive = "None") #0.6527973
 
 
 #SO, WE USE LAPLACE
@@ -556,20 +668,14 @@ predictNB <- predict(modelNBLap, test_data_x)
 table(predictNB, test_data_y)
 #          test_data_y
 # predictNB Delayed None
-#   Delayed     417  444
-#   None       1313 2326
-
-# -->
-#          test_data_y
-# predictNB Delayed None
 #   Delayed     448  470
 #   None       1282 2300
 
 #Compute NB error
-mean(test_data_y != predictNB) #0.3904444  -> 0.3893333
+mean(test_data_y != predictNB) #0.3893333
 
 #Compute NB accuracy
-mean(test_data_y == predictNB) #0.6095556 -> 0.6106667
+mean(test_data_y == predictNB) #0.6106667
 
 
 #SENSITIVE MEASURES
@@ -592,7 +698,7 @@ negPredNB #0.4880174
 
 
 
-#BACKWARD PROBLEM: FIND THE AIRLINE
+#BACKWARD PROBLEM: FIND THE AIRLINE ------------------------------- ORGANIZE THIS
 
 #Find the best airline using the histogram
 tableNB <- cbind(test_data_x, predictNB)
